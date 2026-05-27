@@ -8,7 +8,7 @@ const db = knex({
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: "ecommerce_db",
+    database: process.env.DB_NAME,
   },
   pool: {
     min: 2,
