@@ -3,6 +3,7 @@ const userdata_Service = require("../services/userdata.service");
 
 let users = [];
 
+console.log("helo");
 
 exports.storeDatas = (req, res) => {
   try {
