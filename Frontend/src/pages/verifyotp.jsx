@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import img from "../assets/lp1.webp";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "http://localhost:8000/api/auth";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/auth`;
 
 // Countdown Timer Hook
 const useCountdownTimer = (initialSeconds = 60) => {

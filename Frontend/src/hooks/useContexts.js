@@ -19,7 +19,7 @@ export const useProducts = () => {
   }
   return context;
 };
-
+2
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {

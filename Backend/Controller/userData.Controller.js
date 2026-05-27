@@ -61,23 +61,33 @@ exports.storeDatas = (req, res) => {
     GET ALL USERS (OPTIONAL)
 ================================ */
 
+/* ===============================
+    GET ALL USERS
+================================ */
 exports.getAllUsers = async (req, res) => {
     try {
-        const { u_id } = req.query; 
+        // 🛠️ FIX: 'u_id' ku pathila payload-la varra 'user_id' ai vaangi kolgiraom
+        const { user_id } = req.query; 
 
-
-        if (!u_id) {
-            return res.status(400).json({ success: false, message: "User ID is required" });
+        // Variable check
+        if (!user_id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "User ID (user_id) is required" 
+            });
         }
 
-        // Service call panni data-va edukurom
-        const user = await userdata_Service.getUserProfile(u_id);
+        // Service call-ku indha user_id-ai pass seigiraom
+        const user = await userdata_Service.getUserProfile(user_id);
 
         if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
+            return res.status(404).json({ 
+                success: false, 
+                message: "User not found in database" 
+            });
         }
 
-        // Data-va return panrom
+        // Data successfully sent to frontend
         res.status(200).json({
             success: true,
             user: user

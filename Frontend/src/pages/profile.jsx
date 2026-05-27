@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import {
   User, MapPin, Settings, LogOut, Edit3, ShieldCheck,
   Mail, Phone, Package, Star, Target, Fingerprint, Zap, KeyRound, 
-  ShieldAlert, Headset, ChevronRight
+  ShieldAlert, Headset, ChevronRight, PlusCircle
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}`;
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -15,12 +15,21 @@ const Profile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       const userId = localStorage.getItem("u_id");
+      console.log(userId);
+      
       if (!userId) { setLoading(false); return; }
       try {
-        const response = await fetch(`${API_BASE_URL}/api/get-user?u_id=${userId}`);
+        const response = await fetch(`${API_BASE_URL}/get-user?user_id=${userId}`);
         const data = await response.json();
-        if (response.ok && data.success) setUserData(data.user);
-      } catch (error) { console.error(error); } finally { setLoading(false); }
+        
+        if (response.ok && data.success) {
+          setUserData(data.user);
+        }
+      } catch (error) { 
+        console.error("Profile fetch error:", error); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchProfile();
   }, []);
@@ -30,6 +39,19 @@ const Profile = () => {
     window.location.href = "/";
   };
 
+  // Action function when user clicks "Link Now"
+  const handleLinkAction = (type) => {
+    // Ungaladhu requirements-ku etraar pola settings tab-ko illai modal-ko redirect seiyalaam
+    setActiveTab("settings");
+    setTimeout(() => {
+      alert(`Please update your ${type} field in the Account Settings below.`);
+    }, 300);
+  };
+
+  if (loading) {
+    return <Loader />;
+  }
+
   // --- RENDERING TABS CONDITIONALLY ---
   const renderTabContent = () => {
     switch (activeTab) {
@@ -38,10 +60,28 @@ const Profile = () => {
           <div className="space-y-6 animate-fadeIn">
             {/* IMPORTANT FIELDS GRID */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat icon={<Mail color="#3b82f6"/>} label="Email Address" value={userData?.email} />
-              <Stat icon={<Phone color="#10b981"/>} label="Phone Number" value={userData?.phonenumber || "Not Linked"} />
-              <Stat icon={<MapPin color="#f43f5e"/>} label="Pincode" value={userData?.pincode || "Not Added"} />
-              <Stat icon={<Target color="#a855f7"/>} label="Gender" value={userData?.gender || "Not Specified"} />
+              
+              {/* EMAIL CARD */}
+              <Stat 
+                icon={<Mail color="#3b82f6"/>} 
+                label="Email Address" 
+                value={userData?.email} 
+                onLinkClick={() => handleLinkAction("Email")}
+              />
+
+              {/* PHONE NUMBER CARD */}
+              <Stat 
+                icon={<Phone color="#10b981"/>} 
+                label="Phone Number" 
+                value={userData?.phonenumber} 
+                onLinkClick={() => handleLinkAction("Phone Number")}
+              />
+
+              {/* PINCODE CARD */}
+              <Stat icon={<MapPin color="#f43f5e"/>} label="Pincode" value={userData?.pincode} fallbackText="Not Added" />
+              
+              {/* GENDER CARD */}
+              <Stat icon={<Target color="#a855f7"/>} label="Gender" value={userData?.gender} fallbackText="Not Specified" />
             </div>
 
             {/* IDENTITY & ADDRESS DETAILS */}
@@ -51,7 +91,7 @@ const Profile = () => {
                     <div className="p-2 text-blue-400 bg-blue-500/10 rounded-xl"><ShieldCheck size={20}/></div>
                     <h3 className="text-lg font-bold text-white">Identity Details</h3>
                   </div>
-                  <button className="p-2.5 text-slate-400 transition-colors bg-slate-700 rounded-xl hover:bg-slate-600 hover:text-white">
+                  <button onClick={() => setActiveTab("settings")} className="p-2.5 text-slate-400 transition-colors bg-slate-700 rounded-xl hover:bg-slate-600 hover:text-white">
                     <Edit3 size={16} />
                   </button>
                </div>
@@ -60,7 +100,9 @@ const Profile = () => {
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Residential Address</span>
                     <p className="text-base font-normal leading-relaxed text-slate-300">
-                      {userData?.address || "No address on file. Please add an address for seamless deliveries."}
+                      {userData?.address 
+                        ? `${userData.address}${userData.location ? `, ${userData.location}` : ""}` 
+                        : "No address on file. Please add an address for seamless deliveries."}
                     </p>
                   </div>
                   
@@ -103,7 +145,6 @@ const Profile = () => {
       case "settings":
         return (
           <div className="space-y-6 animate-fadeIn">
-            {/* 1. Account Settings - Important Fields */}
             <div className="bg-[#1E293B] border border-slate-700/60 rounded-[2rem] p-8 space-y-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 text-amber-400 bg-amber-500/10 rounded-xl"><Settings size={20}/></div>
@@ -117,7 +158,11 @@ const Profile = () => {
                 </div>
                 <div>
                   <label className="block mb-2 text-xs font-bold tracking-wider uppercase text-slate-500">Phone Number</label>
-                  <input type="text" defaultValue={userData?.phonenumber} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                  <input type="text" defaultValue={userData?.phonenumber || ""} placeholder="Enter phone number" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block mb-2 text-xs font-bold tracking-wider uppercase text-slate-500">Email Address</label>
+                  <input type="email" defaultValue={userData?.email || ""} placeholder="Enter email address" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none" />
                 </div>
               </div>
               <button className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition">
@@ -125,9 +170,7 @@ const Profile = () => {
               </button>
             </div>
 
-            {/* 2. Privacy & Customer Care Section */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Account Privacy */}
               <div className="bg-[#1E293B] border border-slate-700/60 rounded-[2rem] p-6 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -142,7 +185,6 @@ const Profile = () => {
                 </button>
               </div>
 
-              {/* Customer Care */}
               <div className="bg-[#1E293B] border border-slate-700/60 rounded-[2rem] p-6 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -158,11 +200,10 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* 3. Inline Logout Option */}
             <div className="flex items-center justify-between p-4 border bg-red-500/5 border-red-500/20 rounded-2xl">
               <div>
                 <h4 className="text-sm font-bold text-white">Session Control</h4>
-                <p className="text-xs text-slate-400 mt-0.5">Intha device-il irundhu ungal account-ai logout seiya.</p>
+                <p className="text-xs text-slate-400 mt-0.5">TO logout your Account</p>
               </div>
               <button 
                 onClick={handleLogout}
@@ -191,8 +232,8 @@ const Profile = () => {
                 <div className="flex flex-col items-center">
                   <div className="relative group">
                     <img 
-                      src={userData?.userImage ? `${API_BASE_URL}/uploads/${userData.userImage}` : `https://api.dicebear.com/7.x/micah/svg?seed=${userData?.userName}`}
-                      className="object-cover w-24 h-24 border-2 border-blue-500 rounded-full"
+                      src={userData?.userImage ? `${API_BASE_URL}/uploads/${userData.userImage}` : `https://api.dicebear.com/7.x/micah/svg?seed=${userData?.userName || "Explorer"}`}
+                      className="object-cover w-24 h-24 border-2 border-blue-500 rounded-full bg-slate-800"
                       alt="Profile"
                     />
                   </div>
@@ -202,7 +243,8 @@ const Profile = () => {
                 </div>
 
                 <nav className="mt-8 space-y-1">
-                  <NavToggle icon={<Zap />} label="Overview" active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />                  <NavToggle icon={<Fingerprint />} label="Security" active={activeTab === "security"} onClick={() => setActiveTab("security")} />
+                  <NavToggle icon={<Zap />} label="Overview" active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
+                  <NavToggle icon={<Fingerprint />} label="Security" active={activeTab === "security"} onClick={() => setActiveTab("security")} />
                   <NavToggle icon={<Settings />} label="Settings" active={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
                 </nav>
 
@@ -250,15 +292,40 @@ const NavToggle = ({ icon, label, active, onClick }) => (
   </button>
 );
 
-const Stat = ({ icon, label, value }) => (
-  <div className="bg-[#1E293B] p-5 rounded-2xl border border-slate-700/60 transition-all hover:border-slate-600">
-    <div className="p-2 mb-3 bg-slate-900 w-fit rounded-xl">
-      {icon}
+// ✅ CUSTOMISED STAT COMPONENT FOR DYNAMIC BUTTONS
+// ✅ FIXED STAT COMPONENT (CRASH FREE)
+const Stat = ({ icon, label, value, fallbackText = "Not Linked", onLinkClick }) => {
+  // Convert value to string safely and check if it has content
+  const hasValue = value !== undefined && value !== null && String(value).trim() !== "";
+
+  return (
+    <div className="bg-[#1E293B] p-5 rounded-2xl border border-slate-700/60 transition-all hover:border-slate-600 flex flex-col justify-between min-h-[140px]">
+      <div>
+        <div className="p-2 mb-3 bg-slate-900 w-fit rounded-xl">
+          {icon}
+        </div>
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{label}</p>
+        
+        {hasValue ? (
+          <p className="text-sm font-semibold text-white truncate">{value}</p>
+        ) : (
+          <p className="text-xs italic font-medium text-slate-500">{fallbackText}</p>
+        )}
+      </div>
+
+      {/* Show "Link Now" button conditionally if data is missing and callback is provided */}
+      {!hasValue && onLinkClick && (
+        <button 
+          onClick={onLinkClick}
+          className="mt-3 w-fit flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white text-xs font-bold rounded-lg transition-all duration-200 border border-blue-500/20"
+        >
+          <PlusCircle size={12} />
+          Link Now
+        </button>
+      )}
     </div>
-    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{label}</p>
-    <p className="text-sm font-semibold text-white truncate">{value || "---"}</p>
-  </div>
-);
+  );
+};
 
 const Loader = () => (
   <div className="h-screen bg-[#0F172A] flex flex-col items-center justify-center">

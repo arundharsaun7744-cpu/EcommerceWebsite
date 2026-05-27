@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from 'react-toastify';
 // import 'react-toastify/dist/react-toastify.css';
 
-const API_BASE_URL = "http://localhost:8000/api/auth";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/auth`;
+
 
 const ShowLogin = () => {
     const navigate = useNavigate();
