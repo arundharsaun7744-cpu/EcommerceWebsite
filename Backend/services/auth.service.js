@@ -151,6 +151,7 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
         throw new Error("Invalid or expired OTP");
     }
 
+    // OTP correct-na delete pannidalam
     delete otpStore[lookupKey];
 
     // 3. Determine Final Email & Phone
@@ -162,9 +163,11 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
         throw new Error("Missing required profile detail (both valid email and phone are mandatory).");
     }
 
-    // 🔥 FIX 1: Already indha phone number database-il irukkaa nu check seigirom
-    const existingUser = await db("login_users").where({ phonenumber: finalPhone }).first();
-    
+    // 🔥 STEP 4: Database-il indha phone number munbae irukkaa nu STRICT-ah check seigirom
+    const existingUser = await db("login_users")
+        .where({ phonenumber: finalPhone })
+        .first();
+
     let sessionToken;
     let dbPayload = {
         email: finalEmail,
@@ -174,25 +177,32 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
     };
 
     if (existingUser) {
-        // Already user irundhal, puyadhaga ID generate seiyaamal, pazhaya ID-aye retain seigirom!
+        // ✅ 1. Same phone number irundhal, PUDHU ROW CREATE AGATHU. 
+        // Pazhaya primary ID-aye retain panni, adhil ulla email-ai mattum UPDATE seigirom.
         sessionToken = existingUser.id;
-        await db("login_users").where({ id: sessionToken }).update(dbPayload);
-        console.log("🔄 Existing user phone matched! Email updated for ID:", sessionToken);
+        
+        await db("login_users")
+            .where({ id: sessionToken })
+            .update(dbPayload);
+            
+        console.log("🔄 Same phone number matched! Updated existing row for ID:", sessionToken);
     } else {
-        // Pudhu user endral mattumae pudhu UUID generate aagum
+        // ✅ 2. Sutthamaaga illai endral mattumae PUDHU UUID row insert aagum.
         sessionToken = crypto.randomUUID();
         dbPayload.id = sessionToken;
+        dbPayload.created_at = new Date();
+        
         await db("login_users").insert(dbPayload);
-        console.log("🆕 New user row registered with ID:", sessionToken);
+        console.log("🆕 New unique phone number! Inserted new row with ID:", sessionToken);
     }
 
-    // 7. Get the final user record safely
+    // 5. Get the final synchronized user record safely
     const user = await db("login_users").where({ id: sessionToken }).first();
 
     return {
         success: true,
-        message: "OTP verified & user profile updated.",
-        sessionToken: sessionToken, // Sends to frontend localStorage as u_id
+        message: "OTP verified & user profile sync completed.",
+        sessionToken: sessionToken, // Frontend localStorage u_id ku idhudhaan pogum
         user: {
             id: user.id,
             email: user.email,
@@ -200,7 +210,6 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
         }
     };
 };
-
 
 exports.getUserProfile = async (u_id) => {
     const user = await db("login_users")

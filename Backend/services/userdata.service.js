@@ -5,10 +5,12 @@ const db = require("../db/mysql");
 */
 exports.InsertUser = async (data) => {
   try {
-    console.log("Checking userdetails entry for ID:", data.id);
+    console.log("Checking userdetails mapping for ID:", data.id);
 
-    // 🔥 FIX 2: Check if this user ID already exists in userdetails
-    const existingDetails = await db("userdetails").where({ id: data.id }).first();
+    // 🔥 STEP 5: userdetails table-la indha dynamic ID munbae irukkaa nu check seigirom
+    const existingDetails = await db("userdetails")
+        .where({ id: data.id })
+        .first();
 
     const profilePayload = {
       userImage: data.profileimg,
@@ -20,16 +22,18 @@ exports.InsertUser = async (data) => {
     };
 
     if (existingDetails) {
-      // Data table-il irundhal absolute variables-ai mattum UPDATE seigirom
-      await db("userdetails").where({ id: data.id }).update(profilePayload);
-      console.log("✅ 'userdetails' successfully updated for existing ID:", data.id);
+      // ✅ User details dashboard-il munae irundhaal, pure UPDATE query run aagum
+      await db("userdetails")
+        .where({ id: data.id })
+        .update(profilePayload);
+      console.log("✅ 'userdetails' successfully updated for ID:", data.id);
     } else {
-      // Data illai endral, custom login identity reference primary key-odu saerthu INSERT seigirom
+      // ✅ Sutthamaaga illai endral, login_users id mappingodu saerthu INSERT aagum
       await db("userdetails").insert({
         id: data.id,
         ...profilePayload
       });
-      console.log("✅ New 'userdetails' profile row inserted successfully!");
+      console.log("✅ New profile details row inserted safely for ID:", data.id);
     }
 
     return {
@@ -39,11 +43,10 @@ exports.InsertUser = async (data) => {
     };
 
   } catch (err) {
-    console.error("❌ MySQL Insert/Update Error in userdetails:", err);
+    console.error("❌ MySQL Upsert Error in userdetails:", err);
     throw err;
   }
 };
-
 
 /* =================================
    GET USER PROFILE (COMBINED DATA)
