@@ -3,7 +3,7 @@ const db = require("../db/mysql");
 /* ===============================
    INSERT USER
 ================================ */
-exports.createUser = async (data) => {
+exports.InsertUser = async (data) => {
   try {
     const [id] = await db("userdetails").insert({
       id : data.id,

@@ -6,6 +6,7 @@ const path = require("path");
 
 const app = express();
 
+const UserModel = require("./models/User.model");
 const port = process.env.PORT || 8000;
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 

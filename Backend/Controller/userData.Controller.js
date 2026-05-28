@@ -39,7 +39,7 @@ exports.storeDatas = (req, res) => {
       createdAt: new Date(),
     };
 
-    userdata_Service.createUser(userData);
+    userdata_Service.InsertUser(userData);
 
     res.status(201).json({
       success: true,
