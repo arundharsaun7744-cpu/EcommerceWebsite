@@ -47,7 +47,6 @@ exports.InsertUser = async (data) => {
     throw err;
   }
 };
-
 /* =================================
    GET USER PROFILE (COMBINED DATA)
 ================================= */
