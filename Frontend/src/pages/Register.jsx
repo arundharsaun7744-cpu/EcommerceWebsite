@@ -23,21 +23,25 @@ export default function Register() {
 
   const password = watch('password');
 
-  const onSubmit = async (data) => {
-    setLoading(true);
-    setError(null);
-    const { confirmPassword, ...registerData } = data;
-    try {
-      registerUser(registerData);
-      showSuccess('Registration successful!');
-      navigate('/');
-    } catch (err) {
-      setError(err.message || 'Registration failed');
-      showError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const onSubmit = async (data) => {
+  setLoading(true);
+  setError(null);
+
+  const { confirmPassword, ...registerData } = data;
+
+  try {
+    await registerUser(registerData);
+
+    showSuccess("Registration successful!");
+    navigate("/");
+  } catch (err) {
+    const message = err?.message || "Registration failed";
+    setError(message);
+    showError(message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Container maxWidth="sm" sx={{ py: 8, pt: 14 }}>
