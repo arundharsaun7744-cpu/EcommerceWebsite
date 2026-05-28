@@ -58,7 +58,7 @@ exports.verifyOtp = async (req, res) => {
 
 
 exports.getAuthData = async (req, res) => {
-  try {
+  try { 
     const { u_id } = req.query;
 
     if (!u_id) {

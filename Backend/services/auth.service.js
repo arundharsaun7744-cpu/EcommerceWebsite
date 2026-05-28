@@ -151,7 +151,6 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
         throw new Error("Invalid or expired OTP");
     }
 
-    // OTP correct-na delete pannidalam
     delete otpStore[lookupKey];
 
     // 3. Determine Final Email & Phone
@@ -163,31 +162,37 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
         throw new Error("Missing required profile detail (both valid email and phone are mandatory).");
     }
 
-    // 4. Generate Session UUID for the user
-    const sessionToken = crypto.randomUUID();
-
-    // 5. Prepare Database Payload
+    // 🔥 FIX 1: Already indha phone number database-il irukkaa nu check seigirom
+    const existingUser = await db("login_users").where({ phonenumber: finalPhone }).first();
+    
+    let sessionToken;
     let dbPayload = {
         email: finalEmail,
         phonenumber: finalPhone,
         is_profile_completed: true,
-        id: sessionToken, // Store the UUID in DB
         updated_at: new Date()
     };
 
-    // 6. Insert or Update User in DB
-    await db("login_users")
-        .insert(dbPayload)
-        .onConflict("phonenumber")
-        .merge(dbPayload);
+    if (existingUser) {
+        // Already user irundhal, puyadhaga ID generate seiyaamal, pazhaya ID-aye retain seigirom!
+        sessionToken = existingUser.id;
+        await db("login_users").where({ id: sessionToken }).update(dbPayload);
+        console.log("🔄 Existing user phone matched! Email updated for ID:", sessionToken);
+    } else {
+        // Pudhu user endral mattumae pudhu UUID generate aagum
+        sessionToken = crypto.randomUUID();
+        dbPayload.id = sessionToken;
+        await db("login_users").insert(dbPayload);
+        console.log("🆕 New user row registered with ID:", sessionToken);
+    }
 
-    // 7. Get the final user record (including auto-generated ID)
-    const user = await db("login_users").where({ phonenumber: finalPhone }).first();
+    // 7. Get the final user record safely
+    const user = await db("login_users").where({ id: sessionToken }).first();
 
     return {
         success: true,
         message: "OTP verified & user profile updated.",
-        sessionToken: sessionToken, // Send this to frontend
+        sessionToken: sessionToken, // Sends to frontend localStorage as u_id
         user: {
             id: user.id,
             email: user.email,
