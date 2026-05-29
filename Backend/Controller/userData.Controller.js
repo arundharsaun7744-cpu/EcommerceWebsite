@@ -57,19 +57,10 @@ exports.storeDatas = (req, res) => {
   }
 };
 
-/* ===============================
-    GET ALL USERS (OPTIONAL)
-================================ */
-
-/* ===============================
-    GET ALL USERS
-================================ */
 exports.getAllUsers = async (req, res) => {
     try {
-        // 🛠️ FIX: 'u_id' ku pathila payload-la varra 'user_id' ai vaangi kolgiraom
         const { user_id } = req.query; 
 
-        // Variable check
         if (!user_id) {
             return res.status(400).json({ 
                 success: false, 
