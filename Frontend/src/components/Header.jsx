@@ -1,25 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/amazon-logo-on-transparent-background-free-vector.jpg"
+import logo from "../assets/amazon-logo-on-transparent-background-free-vector.jpg";
+
 import {
   AppBar,
   Toolbar,
   Box,
   InputBase,
   IconButton,
-  Menu,
-  MenuItem,
   Popover,
-  Paper,
 } from "@mui/material";
+
 import {
   Search as SearchIcon,
   ShoppingCart,
   Favorite,
   AccountCircle,
-  Close as CloseIcon,
 } from "@mui/icons-material";
+
 import { motion } from "framer-motion";
+
 import {
   useAuth,
   useProducts,
@@ -27,73 +27,79 @@ import {
   useWishlist,
 } from "../hooks/useContexts";
 
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}`;
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+
+const getProfileImageUrl = (image) => {
+  if (!image) return null;
+
+  const cleanImage = String(image).trim();
+
+  if (!cleanImage) return null;
+
+  if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
+    return cleanImage;
+  }
+
+  if (cleanImage.startsWith("/uploads")) {
+    return `${IMAGE_BASE_URL}${cleanImage}`;
+  }
+
+  if (cleanImage.startsWith("uploads/")) {
+    return `${IMAGE_BASE_URL}/${cleanImage}`;
+  }
+
+  return `${IMAGE_BASE_URL}/uploads/${cleanImage}`;
+};
+
 const Header = () => {
   const navigate = useNavigate();
-  const { user, login, logout } = useAuth();
+
+  const { user } = useAuth();
   const { products } = useProducts();
   const { cartItems } = useCart();
   const { wishlist } = useWishlist();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [anchorEl, setAnchorEl] = useState(null);
   const [searchAnchor, setSearchAnchor] = useState(null);
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [searchResults, setSearchResults] = useState([]);
-  const isAuthenticated = !!user; 
+  const [profileData, setProfileData] = useState(null);
 
-  // Build menu items as an array to avoid passing a Fragment to MUI Menu
-  const menuItems = [];
-  if (isAuthenticated) {
-    menuItems.push(
-      <MenuItem disabled key="username" className="font-semibold">
-        {user?.name || "User"}
-      </MenuItem>
-    );
-    menuItems.push(
-      <MenuItem key="profile" onClick={() => handleNavigate("/profile")}>
-        My Profile
-      </MenuItem>
-    );
-    menuItems.push(
-      <MenuItem key="orders" onClick={() => handleNavigate("/orders")}>
-        My Orders
-      </MenuItem>
-    );
-    menuItems.push(
-      <MenuItem key="addresses" onClick={() => handleNavigate("/addresses")}>
-        Addresses
-      </MenuItem>
-    );
-    menuItems.push(
-      <MenuItem key="logout" onClick={() => handleNavigate("/logout")}>
-        Logout
-      </MenuItem>
-    );
-  } else {
-    menuItems.push(
-      <MenuItem key="login" onClick={() => handleNavigate("/profile")}>
-        profile
-      </MenuItem>
-    );
-    menuItems.push(
-      <MenuItem key="register" onClick={() => handleNavigate("/settings")}>
-        settings
-      </MenuItem>
-    );
-  }
+  useEffect(() => {
+    const fetchProfileForHeader = async () => {
+      const userId = localStorage.getItem("u_id");
 
+      if (!userId) return;
 
-  // Handle scroll to show/hide header
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/get-user?user_id=${userId}`,
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setProfileData(data.user);
+        }
+      } catch (error) {
+        console.error("Header profile fetch error:", error);
+      }
+    };
+
+    fetchProfileForHeader();
+  }, []);
+
+  const profileImage = getProfileImageUrl(profileData?.userImage);
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
 
-      // Show header when scrolling up or at top
       if (currentScrollY < lastScrollY || currentScrollY < 50) {
         setShowHeader(true);
       } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        // Hide header when scrolling down
         setShowHeader(false);
       }
 
@@ -101,6 +107,7 @@ const Header = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
@@ -118,15 +125,17 @@ const Header = () => {
     setSearchQuery(query);
 
     if (query.trim().length > 0) {
-      // Filter products in real-time
-      const filtered = (products || []).filter((product) => {
-        const searchLower = query.toLowerCase();
-        return (
-          product.name.toLowerCase().includes(searchLower) ||
-          product.description?.toLowerCase().includes(searchLower)
-        );
-      }).slice(0, 5); // Show top 5 results
-      
+      const filtered = (products || [])
+        .filter((product) => {
+          const searchLower = query.toLowerCase();
+
+          return (
+            product.name?.toLowerCase().includes(searchLower) ||
+            product.description?.toLowerCase().includes(searchLower)
+          );
+        })
+        .slice(0, 5);
+
       setSearchResults(filtered);
       setSearchAnchor(e.currentTarget);
     } else {
@@ -135,48 +144,32 @@ const Header = () => {
     }
   };
 
-  const handleSearchResultClick = (product) => {
-    // Navigate to product detail or you can add a quick view
-    setSearchQuery("");
-    setSearchResults([]);
-    setSearchAnchor(null);
-  };
-
   const handleCloseSearch = () => {
     setSearchResults([]);
     setSearchAnchor(null);
   };
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleNavigate = (path) => {
-    navigate(path);
-    handleMenuClose();
-  };
-
   return (
     <motion.div
       initial={{ y: -100, opacity: 0 }}
-      animate={{ y: showHeader ? 0 : -100, opacity: showHeader ? 1 : 0 }}
+      animate={{
+        y: showHeader ? 0 : -100,
+        opacity: showHeader ? 1 : 0,
+      }}
       transition={{ type: "spring", stiffness: 120, damping: 18 }}
       className="shadow-card-lg"
-      style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000 }}
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+      }}
     >
       <AppBar
         position="sticky"
-        bottom={0}
-        
         sx={{
-             backgroundColor: "#ffffff",
-    color: "#111111",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-
+          backgroundColor: "#ffffff",
+          color: "#111111",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
         className="backdrop-blur-md"
       >
@@ -193,13 +186,22 @@ const Header = () => {
             whileHover={{ scale: 1.08, rotate: 2 }}
             whileTap={{ scale: 0.98 }}
             className="cursor-pointer"
-            style={{ display: "flex", alignItems: "center"  ,   width: 150}}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: 150,
+            }}
+            onClick={() => navigate("/")}
           >
-
-              <img  className="text-xl font-extrabold sm:text-2xl md:text-3xl"
-              style={{ letterSpacing: "1px" ,paddingTop: "8px"}}
-              onClick={() => navigate("/")}  src={logo} alt="Logo" />
-
+            <img
+              className="text-xl font-extrabold sm:text-2xl md:text-3xl"
+              style={{
+                letterSpacing: "1px",
+                paddingTop: "8px",
+              }}
+              src={logo}
+              alt="Logo"
+            />
           </motion.div>
 
           {/* Search Bar */}
@@ -220,11 +222,12 @@ const Header = () => {
             className="transition-all duration-300"
           >
             <SearchIcon sx={{ color: "#667eea", marginRight: "8px" }} />
+
             <InputBase
               placeholder="Search products..."
               value={searchQuery}
               onChange={handleSearchChange}
-              onKeyPress={handleSearch}
+              onKeyDown={handleSearch}
               sx={{
                 width: "100%",
                 fontSize: { xs: "13px", sm: "14px", md: "15px" },
@@ -236,7 +239,6 @@ const Header = () => {
               className="focus:outline-none"
             />
 
-            {/* Search Results Dropdown */}
             <Popover
               open={Boolean(searchAnchor) && searchResults.length > 0}
               anchorEl={searchAnchor}
@@ -307,6 +309,7 @@ const Header = () => {
                           }}
                         />
                       </Box>
+
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Box
                           sx={{
@@ -320,6 +323,7 @@ const Header = () => {
                         >
                           {product.name}
                         </Box>
+
                         <Box
                           sx={{
                             fontSize: "12px",
@@ -328,7 +332,7 @@ const Header = () => {
                             marginTop: "4px",
                           }}
                         >
-                          ₹{product.price.toLocaleString()}
+                          ₹{product.price?.toLocaleString()}
                         </Box>
                       </Box>
                     </Box>
@@ -343,11 +347,12 @@ const Header = () => {
             sx={{
               display: "flex",
               alignItems: "center",
+              gap: { xs: "2px", sm: "6px" },
             }}
           >
             {/* Wishlist */}
             <motion.div
-              whileHover={{ scale: 1.18, rotate: -8 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.95 }}
               className="transition-transform"
             >
@@ -360,18 +365,23 @@ const Header = () => {
               </IconButton>
             </motion.div>
 
-            {/* Cart */}
+            {/* Orders / Cart */}
             <motion.div
-              whileHover={{ scale: 1.18, rotate: 8 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.95 }}
               className="transition-transform"
             >
               <IconButton
-                sx={{ color: "#667eea", p: { xs: 0.5, sm: 1 }, position: "relative" }}
+                sx={{
+                  color: "#667eea",
+                  p: { xs: 0.5, sm: 1 },
+                  position: "relative",
+                }}
                 onClick={() => navigate("/orders")}
-                aria-label="Cart"
+                aria-label="Orders"
               >
                 <ShoppingCart fontSize="medium" />
+
                 {cartItems?.length > 0 && (
                   <Box
                     sx={{
@@ -396,38 +406,44 @@ const Header = () => {
               </IconButton>
             </motion.div>
 
-            {/* User Account */}
+            {/* ✅ Profile image only - no dropdown */}
             <motion.div
-              whileHover={{ scale: 1.18 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.95 }}
               className="transition-transform"
             >
               <IconButton
-                sx={{ color: "green", p: { xs: 0.5, sm: 1 } }}
-                onClick={handleMenuOpen}
-                aria-label="Account"
+                onClick={() => navigate("/profile")}
+                aria-label="Profile"
+                sx={{
+                  p: { xs: 0.3, sm: 0.5 },
+                }}
               >
-                <AccountCircle fontSize="medium" />
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt="Profile"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "2px solid #16a34a",
+                    }}
+                  />
+                ) : (
+                  <AccountCircle
+                    sx={{
+                      color: "green",
+                      fontSize: 34,
+                    }}
+                  />
+                )}
               </IconButton>
             </motion.div>
-
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-              PaperProps={{
-                sx: {
-                  backgroundImage:
-                    "linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)",
-                  minWidth: { xs: 120, sm: 180 },
-                  boxShadow: "0 2px 12px rgba(102,126,234,0.12)",
-                  borderRadius: "12px",
-                },
-              }}
-              transitionDuration={250}
-            >
-              {menuItems}
-            </Menu>
           </Box>
         </Toolbar>
       </AppBar>

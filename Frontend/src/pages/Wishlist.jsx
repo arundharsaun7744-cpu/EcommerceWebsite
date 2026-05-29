@@ -13,7 +13,7 @@ useEffect(() => {
 }, []);
   
   return (
-    <div className="max-w-6xl p-4 mx-auto mt-20 mb-12">
+    <div className="max-w-6xl p-4 mx-auto mb-12">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold">My Wishlist</h2>
 

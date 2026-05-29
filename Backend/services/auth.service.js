@@ -1,64 +1,49 @@
 // auth.service.js
 
 const twilio = require("twilio");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
+const crypto = require("crypto");
 const db = require("../db/mysql");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const isEmail = (value) => /\S+@\S+\.\S+/.test(value);
 
 const isPhone = (value) => {
   if (!value || typeof value !== "string") return false;
-
   return /^\+?[0-9\s-()]{7,20}$/.test(value.trim());
 };
 
 const normalizePhone = (phone) => {
   if (!phone) return null;
+
   phone = phone.trim().replace(/[\s-()]/g, "");
+
   if (phone.startsWith("+")) return phone;
   if (/^\d{10}$/.test(phone)) return `+91${phone}`;
+
   return phone;
 };
 
-const useRealServices =
+const hasResend = Boolean(process.env.RESEND_API_KEY);
+
+const hasTwilio = Boolean(
   process.env.TWILIO_ACCOUNT_SID &&
-  process.env.TWILIO_AUTH_TOKEN &&
-  process.env.EMAIL_USER;
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_PHONE_NUMBER
+);
 
 let twilioClient;
-let mailTransporter;
 
-if (useRealServices) {
-  console.log("Using REAL Twilio and Nodemailer clients.");
+if (hasTwilio) {
+  console.log("✅ Using REAL Twilio client.");
 
   twilioClient = twilio(
     process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN,
+    process.env.TWILIO_AUTH_TOKEN
   );
-
-  mailTransporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-  });
-  mailTransporter.verify((error, success) => {
-    if (error) {
-      console.log("SMTP VERIFY ERROR:", error);
-    } else {
-      console.log("SMTP SERVER READY");
-    }
-  });
 } else {
-  console.warn(
-    "Using MOCK Twilio/Nodemailer clients. Set environment variables for real functionality.",
-  );
+  console.warn("⚠️ Using MOCK Twilio client.");
 
   twilioClient = {
     messages: {
@@ -67,107 +52,132 @@ if (useRealServices) {
       },
     },
   };
-
-  mailTransporter = {
-    sendMail: async ({ to, subject, html }) => {
-      console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}, Body: ${html}`);
-    },
-  };
 }
 
-const otpStore = {}; //  [+916385221009] = {1212 , 22344} ,
+if (hasResend) {
+  console.log("✅ Using REAL Resend client.");
+} else {
+  console.warn("⚠️ Using MOCK Resend email.");
+}
+
+const otpStore = {};
+
+const sendEmailOtp = async ({ email, otp }) => {
+  if (hasResend) {
+    await resend.emails.send({
+      from: "onboarding@resend.dev",
+      to: email,
+      subject: "Your OTP Code",
+      html: `<p>Your OTP is <b>${otp}</b>. Valid for 5 minutes.</p>`,
+    });
+
+    console.log("✅ Email OTP sent:", email);
+  } else {
+    console.log(`[MOCK EMAIL] To: ${email}, OTP: ${otp}`);
+  }
+};
+
+const sendPhoneOtp = async ({ phone, otp }) => {
+  await twilioClient.messages.create({
+    body: `Your OTP is ${otp}. Valid for 5 minutes.`,
+    from: process.env.TWILIO_PHONE_NUMBER,
+    to: phone,
+  });
+
+  console.log("✅ Phone OTP sent:", phone);
+};
 
 const generateAndSendOtp = async (identifier) => {
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000;
-  let key;
 
-  if (isPhone(identifier)) {
-    let phone = identifier.trim();
-    phone = normalizePhone(phone);
-
-    if (!phone) throw new Error("Could not normalize phone number.");
-
-    key = phone;
-    otpStore[key] = { otp, expiresAt };
-
-    await twilioClient.messages.create({
-      body: `Your OTP is ${otp}. Valid for 5 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
-
-    return { key, type: "phone" };
-  }
-
+  // ✅ EMAIL FIRST
   if (isEmail(identifier)) {
     const email = identifier.toLowerCase();
-    key = email;
-    otpStore[key] = { otp, expiresAt };
 
-    await mailTransporter.sendMail({
-      from: process.env.EMAIL_USER || "mock@example.com",
-      to: email,
-      subject: "Your OTP Code",
-      html: `<p>Your OTP is <b>${otp}</b></p>`,
-    });
+    otpStore[email] = { otp, expiresAt };
 
-    return { key, type: "email" };
+    await sendEmailOtp({ email, otp });
+
+    return { key: email, type: "email" };
+  }
+
+  // ✅ PHONE NEXT
+  if (isPhone(identifier)) {
+    const phone = normalizePhone(identifier);
+
+    if (!phone) {
+      throw new Error("Could not normalize phone number.");
+    }
+
+    otpStore[phone] = { otp, expiresAt };
+
+    await sendPhoneOtp({ phone, otp });
+
+    return { key: phone, type: "phone" };
   }
 
   throw new Error("Invalid email or phone identifier format.");
 };
 
-exports.sendOtpService = async ({ identifier, type }) => {
-  let userExists = false;
-  let identifierForDb = identifier;
-
-  if (type === "PHONE") {
-    identifierForDb = normalizePhone(identifier);
+const checkUserExists = async ({ identifier, type }) => {
+  if (type === "EMAIL" || isEmail(identifier)) {
+    const email = identifier.toLowerCase();
 
     const user = await db("login_users")
-      .where({ phonenumber: identifierForDb })
+      .where({ email })
       .first();
-    if (user) userExists = true;
-  } else if (type === "EMAIL") {
-    identifierForDb = identifier.toLowerCase();
-    const user = await db("login_users")
-      .where({ email: identifierForDb })
-      .first();
-    if (user) userExists = true;
+
+    return Boolean(user);
   }
 
-  const { key } = await generateAndSendOtp(identifier);
+  if (type === "PHONE" || isPhone(identifier)) {
+    const phone = normalizePhone(identifier);
+
+    const user = await db("login_users")
+      .where({ phonenumber: phone })
+      .first();
+
+    return Boolean(user);
+  }
+
+  return false;
+};
+
+exports.sendOtpService = async ({ identifier, type }) => {
+  const [userExists, otpResult] = await Promise.all([
+    checkUserExists({ identifier, type }),
+    generateAndSendOtp(identifier),
+  ]);
 
   return {
     success: true,
-    key: key,
-    userExists: userExists,
+    key: otpResult.key,
+    type: otpResult.type,
+    userExists,
   };
 };
-
-const crypto = require("crypto");
 
 exports.verifyOtpService = async ({ key, otp, email, phone }) => {
   console.log("Verify OTP received:", { key, otp, email, phone });
 
-  // 1. Normalize Keys
   let lookupKey = key.trim();
+
   if (isEmail(lookupKey)) lookupKey = lookupKey.toLowerCase();
   if (isPhone(lookupKey)) lookupKey = normalizePhone(lookupKey);
 
-  // 2. Validate OTP from Store
   const stored = otpStore[lookupKey];
+
   if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
     throw new Error("Invalid or expired OTP");
   }
 
   delete otpStore[lookupKey];
 
-  // 3. Determine Final Email & Phone
   const primaryIsPhone = isPhone(lookupKey);
-  let finalPhone = primaryIsPhone ? lookupKey : normalizePhone(phone);
-  let finalEmail = primaryIsPhone
+
+  const finalPhone = primaryIsPhone ? lookupKey : normalizePhone(phone);
+  const finalEmail = primaryIsPhone
     ? email
       ? email.toLowerCase()
       : null
@@ -175,18 +185,18 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
 
   if (!isEmail(finalEmail) || !isPhone(finalPhone)) {
     throw new Error(
-      "Missing required profile detail (both valid email and phone are mandatory).",
+      "Missing required profile detail (both valid email and phone are mandatory)."
     );
   }
 
-  // 🔥 FIX: Email athava Phone Number — ethu match ayalum aa row select cheyyum!
   const existingUser = await db("login_users")
     .where({ phonenumber: finalPhone })
     .orWhere({ email: finalEmail })
     .first();
 
   let sessionToken;
-  let dbPayload = {
+
+  const dbPayload = {
     email: finalEmail,
     phonenumber: finalPhone,
     is_profile_completed: true,
@@ -194,32 +204,33 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
   };
 
   if (existingUser) {
-    // ✅ Ethu match ayalum puthiya row undakkathe, ulla row-ilekku data merge cheyyunnu
     sessionToken = existingUser.id;
 
-    await db("login_users").where({ id: sessionToken }).update(dbPayload);
+    await db("login_users")
+      .where({ id: sessionToken })
+      .update(dbPayload);
 
-    console.log(
-      "🔄 Existing User Matched via Phone or Email! Row updated for ID:",
-      sessionToken,
-    );
+    console.log("🔄 Existing user updated:", sessionToken);
   } else {
-    // ✅ Randum thirichu arinjillebkil mathram puthiya UUID undakkum
     sessionToken = crypto.randomUUID();
-    dbPayload.id = sessionToken;
-    dbPayload.created_at = new Date();
 
-    await db("login_users").insert(dbPayload);
-    console.log("🆕 Purely New User! Inserted new row with ID:", sessionToken);
+    await db("login_users").insert({
+      id: sessionToken,
+      ...dbPayload,
+      created_at: new Date(),
+    });
+
+    console.log("🆕 New user created:", sessionToken);
   }
 
-  // Final database record fetch cheyyan
-  const user = await db("login_users").where({ id: sessionToken }).first();
+  const user = await db("login_users")
+    .where({ id: sessionToken })
+    .first();
 
   return {
     success: true,
     message: "OTP verified & profile synced successfully.",
-    sessionToken: sessionToken,
+    sessionToken,
     user: {
       id: user.id,
       email: user.email,
@@ -229,7 +240,9 @@ exports.verifyOtpService = async ({ key, otp, email, phone }) => {
 };
 
 exports.getUserProfile = async (u_id) => {
-  const user = await db("login_users").where({ id: u_id }).first();
+  const user = await db("login_users")
+    .where({ id: u_id })
+    .first();
 
   return user;
 };
