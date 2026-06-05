@@ -562,6 +562,179 @@ const INDEXED_FASHION_BRANDS = addSearchIndex(FASHION_BRANDS);
 const INDEXED_HOME_APPLIANCE_BRANDS = addSearchIndex(HOME_APPLIANCE_BRANDS);
 const INDEXED_TOY_BRANDS = addSearchIndex(TOY_BRANDS);
 
+const HOME_PRELOAD_IMAGES = Array.from(
+  new Set(
+    [
+      ...PREMIUM_BRANDS,
+      ...GROCERY_BRANDS,
+      ...FASHION_BRANDS,
+      ...HOME_APPLIANCE_BRANDS,
+      ...TOY_BRANDS,
+    ]
+      .map((brand) => brand.poster)
+      .filter(Boolean)
+  )
+);
+
+const HOME_IMAGE_LOADED_CACHE = new Set();
+const HOME_IMAGE_PROMISE_CACHE = new Map();
+let PREMIUM_HUB_INTRO_PLAYED = false;
+
+const preloadSingleImage = (src) => {
+  if (!src) {
+    return Promise.resolve({ src, success: false });
+  }
+
+  if (HOME_IMAGE_LOADED_CACHE.has(src)) {
+    return Promise.resolve({ src, success: true, cached: true });
+  }
+
+  if (HOME_IMAGE_PROMISE_CACHE.has(src)) {
+    return HOME_IMAGE_PROMISE_CACHE.get(src);
+  }
+
+  const promise = new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.loading = "eager";
+
+    image.onload = async () => {
+      try {
+        if (image.decode) {
+          await image.decode();
+        }
+      } catch {
+        // Some browsers reject decode after successful load; ignore safely.
+      }
+
+      HOME_IMAGE_LOADED_CACHE.add(src);
+      resolve({ src, success: true, cached: false });
+    };
+
+    image.onerror = () => {
+      HOME_IMAGE_PROMISE_CACHE.delete(src);
+      resolve({ src, success: false, cached: false });
+    };
+
+    image.src = src;
+  });
+
+  HOME_IMAGE_PROMISE_CACHE.set(src, promise);
+  return promise;
+};
+
+const useImagePreloader = (imageSources = []) => {
+  const uniqueSources = useMemo(() => {
+    return Array.from(new Set(imageSources)).filter(Boolean);
+  }, [imageSources]);
+
+  const getCachedCount = useCallback(() => {
+    return uniqueSources.filter((src) => HOME_IMAGE_LOADED_CACHE.has(src)).length;
+  }, [uniqueSources]);
+
+  const [loadedCount, setLoadedCount] = useState(() => getCachedCount());
+  const [imagesReady, setImagesReady] = useState(() => {
+    return uniqueSources.length === 0 || getCachedCount() === uniqueSources.length;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (uniqueSources.length === 0) {
+      setLoadedCount(0);
+      setImagesReady(true);
+      return undefined;
+    }
+
+    const cachedCount = getCachedCount();
+    setLoadedCount(cachedCount);
+
+    if (cachedCount === uniqueSources.length) {
+      setImagesReady(true);
+      return undefined;
+    }
+
+    setImagesReady(false);
+
+    const preloadImages = async () => {
+      const batchSize = 5;
+      const pendingSources = uniqueSources.filter(
+        (src) => !HOME_IMAGE_LOADED_CACHE.has(src)
+      );
+
+      for (let index = 0; index < pendingSources.length; index += batchSize) {
+        const batch = pendingSources.slice(index, index + batchSize);
+
+        await Promise.all(batch.map((src) => preloadSingleImage(src)));
+
+        if (cancelled) return;
+
+        setLoadedCount(getCachedCount());
+
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+
+      if (!cancelled) {
+        setLoadedCount(uniqueSources.length);
+        setImagesReady(true);
+      }
+    };
+
+    preloadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [uniqueSources, getCachedCount]);
+
+  const totalCount = uniqueSources.length;
+  const progress =
+    totalCount === 0 ? 100 : Math.round((loadedCount / totalCount) * 100);
+
+  return {
+    imagesReady,
+    loadedCount,
+    totalCount,
+    progress,
+  };
+};
+
+const useScrollPerformanceMode = () => {
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimerRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      document.body.classList.add("app-is-scrolling");
+      setIsScrolling(true);
+
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+
+      scrollTimerRef.current = setTimeout(() => {
+        document.body.classList.remove("app-is-scrolling");
+        setIsScrolling(false);
+      }, 180);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+
+      document.body.classList.remove("app-is-scrolling");
+    };
+  }, []);
+
+  return isScrolling;
+};
+
+
 const rotateThreeCards = (list) => {
   if (list.length < 3) return list;
 
@@ -591,6 +764,24 @@ const rotateThreeCards = (list) => {
 
 export default function Home({ bgToggle, setBgToggle }) {
   const navigate = useNavigate();
+  const { imagesReady, loadedCount, totalCount, progress } = useImagePreloader(
+    HOME_PRELOAD_IMAGES
+  );
+  const isScrolling = useScrollPerformanceMode();
+  const [showPremiumIntro, setShowPremiumIntro] = useState(() => {
+    return !PREMIUM_HUB_INTRO_PLAYED;
+  });
+
+  useEffect(() => {
+    if (!imagesReady || !showPremiumIntro) return undefined;
+
+    const introTimer = setTimeout(() => {
+      PREMIUM_HUB_INTRO_PLAYED = true;
+      setShowPremiumIntro(false);
+    }, 2700);
+
+    return () => clearTimeout(introTimer);
+  }, [imagesReady, showPremiumIntro]);
 
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -598,11 +789,12 @@ export default function Home({ bgToggle, setBgToggle }) {
   const [homeApplianceBrands, setHomeApplianceBrands] = useState(
     INDEXED_HOME_APPLIANCE_BRANDS
   );
-  const [homeShuffleRound, setHomeShuffleRound] = useState(0);
+
+  const debouncedSearchText = useDebouncedValue(searchText, 220);
 
   const normalizedSearchText = useMemo(() => {
-    return normalizeText(searchText);
-  }, [searchText]);
+    return normalizeText(debouncedSearchText);
+  }, [debouncedSearchText]);
 
   const normalizedActiveFilter = useMemo(() => {
     return normalizeText(activeFilter);
@@ -625,22 +817,19 @@ export default function Home({ bgToggle, setBgToggle }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (document.hidden) return;
+
       setActivePoster((prev) =>
         prev === PREMIUM_POSTERS.length - 1 ? 0 : prev + 1
       );
-    }, 2500);
+    }, 4500);
 
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const shuffleTimer = setInterval(() => {
-      setHomeApplianceBrands((prev) => rotateThreeCards(prev));
-      setHomeShuffleRound((prev) => prev + 1);
-    }, 6000);
-
-    return () => clearInterval(shuffleTimer);
-  }, []);
+  // Performance fix: continuous shuffling re-mounted many image cards every few seconds.
+  // That caused scroll jank/hang on low-end devices, so the home appliance grid stays stable.
+  // Cards still keep hover transitions without forcing re-render during scroll.
 
   const filterBrandList = useCallback(
     (list) => {
@@ -843,7 +1032,7 @@ const handleBrandClick = async (brand) => {
           <div className="grid grid-cols-1 gap-4 mb-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
             {filteredHomeApplianceBrands.map((brand, index) => (
               <HomeApplianceParallelogram
-                key={`${homeShuffleRound}-${brand.name}-${index}`}
+                key={`${brand.name}-${index}`}
                 brand={brand}
                 index={index}
                 onClick={() => handleBrandClick(brand)}
@@ -911,9 +1100,26 @@ const handleBrandClick = async (brand) => {
       return secondSection.count - firstSection.count;
     });
 
+  if (!imagesReady) {
+    return (
+      <HomeImagePreloader
+        bgToggle={bgToggle}
+        progress={progress}
+        loadedCount={loadedCount}
+        totalCount={totalCount}
+      />
+    );
+  }
+
+  if (showPremiumIntro) {
+    return <PremiumHubOpeningAnimation bgToggle={bgToggle} />;
+  }
+
   return (
     <div
-      className={`min-h-screen transition-colors duration-500 ${
+      className={`home-optimized min-h-screen transition-colors duration-500 ${
+        isScrolling ? "home-scroll-active" : ""
+      } ${
         bgToggle ? "bg-gray-950 text-white" : "bg-gray-50 text-black"
       }`}
     >
@@ -1330,6 +1536,74 @@ const handleBrandClick = async (brand) => {
           transform: translateZ(0);
         }
 
+
+        /* ==========================
+           ADVANCED NO-LAG MODE
+           ========================== */
+        .home-optimized img {
+          content-visibility: auto;
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          contain: paint;
+        }
+
+        .home-optimized .premium-card,
+        .home-optimized .grocery-card,
+        .home-optimized .fashion-card,
+        .home-optimized .ha-card,
+        .home-optimized .toy-card,
+        .home-optimized .toy-mobile-card {
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          contain: layout paint style;
+        }
+
+        /* Real-time apps avoid infinite animations on big image grids.
+           Intro animation runs once; card animations are disabled after that for smooth scroll. */
+        .home-optimized .premium-float,
+        .home-optimized .grocery-float,
+        .home-optimized .fashion-circle,
+        .home-optimized .ha-card,
+        .home-optimized .toy-card,
+        .home-optimized .toy-mobile-card,
+        .home-optimized .toy-mobile-glow,
+        .home-optimized .toy-icon-float,
+        .home-optimized .toy-pop,
+        .home-optimized .circle-glow,
+        .home-optimized .premium-glow,
+        .home-optimized .premium-shine,
+        .home-optimized .ha-glow,
+        .home-optimized .toy-train-row,
+        .home-optimized .toy-wheel,
+        .home-optimized .toy-smoke {
+          animation: none !important;
+        }
+
+        .home-optimized .toy-train-row {
+          transform: translate3d(0, 0, 0) !important;
+        }
+
+        .home-scroll-active *,
+        .app-is-scrolling * {
+          animation-play-state: paused !important;
+        }
+
+        .home-scroll-active .premium-card,
+        .home-scroll-active .grocery-card,
+        .home-scroll-active .fashion-card,
+        .home-scroll-active .ha-card,
+        .home-scroll-active .toy-card,
+        .home-scroll-active .toy-mobile-card {
+          transition-duration: 0ms !important;
+        }
+
+        .home-section-virtual {
+          content-visibility: auto;
+          contain-intrinsic-size: 800px;
+          contain: layout paint style;
+        }
+
+
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
@@ -1338,6 +1612,83 @@ const handleBrandClick = async (brand) => {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
+
+        /* ==========================
+           SCROLL PERFORMANCE FIX
+           ========================== */
+        .premium-card,
+        .grocery-card,
+        .fashion-card,
+        .ha-card,
+        .toy-card,
+        .toy-mobile-card,
+        .premium-image {
+          contain: layout paint style;
+        }
+
+        .premium-card,
+        .grocery-card,
+        .fashion-card,
+        .ha-card,
+        .toy-mobile-card {
+          content-visibility: auto;
+          contain-intrinsic-size: 180px;
+        }
+
+        .premium-image {
+          transform: translateZ(0);
+          will-change: auto;
+        }
+
+        /* Stop always-running animations while scrolling on mobile/tablet */
+        @media (max-width: 1023px) {
+          .premium-float,
+          .grocery-float,
+          .fashion-circle,
+          .ha-card,
+          .toy-mobile-card,
+          .toy-mobile-glow,
+          .toy-icon-float,
+          .toy-pop,
+          .circle-glow,
+          .premium-glow,
+          .premium-shine,
+          .ha-glow {
+            animation: none !important;
+          }
+
+          .premium-card:hover,
+          .grocery-card:hover,
+          .toy-mobile-card:hover,
+          .fashion-card:hover {
+            transform: none !important;
+          }
+        }
+
+        /* Laptop train animation speed reduce to avoid GPU pressure */
+        .toy-train-row {
+          animation-duration: 52s !important;
+          will-change: transform;
+        }
+
+        .toy-wheel,
+        .toy-smoke,
+        .toy-icon-float,
+        .toy-pop {
+          will-change: auto;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+
       `}</style>
 
       <div className="w-full px-2 py-3 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
@@ -1423,7 +1774,7 @@ const handleBrandClick = async (brand) => {
         )}
 
         <section
-          className={`sticky top-0 z-30 mb-4 rounded-2xl border p-3 shadow-sm backdrop-blur sm:top-2 sm:mb-5 ${
+          className={`sticky top-0 z-30 mb-4 rounded-2xl border p-3 shadow-sm sm:top-2 sm:mb-5 ${
             bgToggle
               ? "border-gray-800 bg-gray-900/95"
               : "border-gray-200 bg-white/95"
@@ -1553,7 +1904,7 @@ const handleBrandClick = async (brand) => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
             {filteredHomeApplianceBrands.map((brand, index) => (
               <HomeApplianceParallelogram
-                key={`${homeShuffleRound}-${brand.name}-${index}`}
+                key={`${brand.name}-${index}`}
                 brand={brand}
                 index={index}
                 onClick={() => handleBrandClick(brand)}
@@ -1620,6 +1971,184 @@ const handleBrandClick = async (brand) => {
   );
 }
 
+
+
+const PremiumHubOpeningAnimation = ({ bgToggle }) => {
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-hidden px-5 transition-colors duration-500 ${
+        bgToggle
+          ? "bg-gradient-to-br from-gray-950 via-slate-950 to-black text-white"
+          : "bg-gradient-to-br from-white via-orange-50 to-slate-100 text-slate-950"
+      }`}
+    >
+      <div className="absolute inset-0 opacity-70">
+        <div className="absolute left-[-10%] top-[-15%] h-80 w-80 rounded-full bg-orange-500/25 blur-3xl premium-hub-orb-one" />
+        <div className="absolute bottom-[-16%] right-[-10%] h-96 w-96 rounded-full bg-pink-500/20 blur-3xl premium-hub-orb-two" />
+        <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-500/10 blur-3xl premium-hub-orb-three" />
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center w-full max-w-3xl text-center premium-hub-stage">
+        <div className="premium-hub-logo-shell relative flex h-28 w-28 items-center justify-center rounded-[2rem] border border-white/25 bg-white/10 shadow-2xl backdrop-blur-xl sm:h-36 sm:w-36 sm:rounded-[2.5rem]">
+          <span className="premium-hub-ring absolute inset-[-18px] rounded-[2.8rem] border border-orange-400/50" />
+          <span className="premium-hub-ring-two absolute inset-[-34px] rounded-[3.4rem] border border-pink-400/35" />
+          <span className="absolute inset-y-0 left-0 w-12 -skew-x-12 premium-hub-shine bg-white/35 blur-xl" />
+
+          <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-orange-500 via-pink-500 to-slate-950 text-4xl font-black text-white shadow-xl sm:h-24 sm:w-24 sm:text-5xl">
+            P
+          </div>
+        </div>
+
+        <div className="mt-8 premium-hub-text">
+          <p className="text-[11px] font-black uppercase tracking-[0.34em] text-orange-500 sm:text-xs">
+            Welcome to
+          </p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-transparent bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500 bg-clip-text sm:text-6xl">
+            Premium Hub
+          </h1>
+          <p
+            className={`mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 sm:text-base ${
+              bgToggle ? "text-gray-300" : "text-slate-600"
+            }`}
+          >
+            Posters are ready. Opening a smooth shopping experience without repeated image loading.
+          </p>
+        </div>
+
+        <div className="w-full max-w-sm p-1 mt-8 rounded-full shadow-inner premium-hub-loader bg-white/20">
+          <div className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500" />
+        </div>
+
+        <div className="mt-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+          <span className="w-2 h-2 bg-orange-500 rounded-full premium-hub-dot" />
+          <span className="w-2 h-2 bg-pink-500 rounded-full premium-hub-dot" />
+          <span className="w-2 h-2 rounded-full premium-hub-dot bg-sky-500" />
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes premiumHubStageIn {
+          0% { opacity: 0; transform: translateY(28px) scale(.94); filter: blur(8px); }
+          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+
+        @keyframes premiumHubLogoPop {
+          0% { transform: scale(.55) rotate(-12deg); opacity: 0; }
+          55% { transform: scale(1.08) rotate(3deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        @keyframes premiumHubRingSpin {
+          from { transform: rotate(0deg) scale(1); opacity: .35; }
+          50% { transform: rotate(180deg) scale(1.04); opacity: .8; }
+          to { transform: rotate(360deg) scale(1); opacity: .35; }
+        }
+
+        @keyframes premiumHubShineMove {
+          0% { transform: translateX(-180%) skewX(-12deg); opacity: 0; }
+          35% { opacity: .9; }
+          100% { transform: translateX(280%) skewX(-12deg); opacity: 0; }
+        }
+
+        @keyframes premiumHubTextIn {
+          0% { opacity: 0; transform: translateY(18px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes premiumHubLoader {
+          0% { width: 0%; }
+          70% { width: 84%; }
+          100% { width: 100%; }
+        }
+
+        @keyframes premiumHubOrbFloat {
+          0%, 100% { transform: translate3d(0,0,0) scale(1); }
+          50% { transform: translate3d(18px,-18px,0) scale(1.08); }
+        }
+
+        @keyframes premiumHubDotPulse {
+          0%, 100% { opacity: .25; transform: scale(.75); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .premium-hub-stage { animation: premiumHubStageIn .75s cubic-bezier(.2,1,.3,1) both; }
+        .premium-hub-logo-shell { animation: premiumHubLogoPop .9s cubic-bezier(.2,1.4,.3,1) both; }
+        .premium-hub-ring { animation: premiumHubRingSpin 2.4s linear infinite; }
+        .premium-hub-ring-two { animation: premiumHubRingSpin 3.2s linear infinite reverse; }
+        .premium-hub-shine { animation: premiumHubShineMove 1.9s ease-in-out infinite; }
+        .premium-hub-text { animation: premiumHubTextIn .8s ease-out .35s both; }
+        .premium-hub-loader > div { animation: premiumHubLoader 2.25s ease-in-out both; }
+        .premium-hub-orb-one, .premium-hub-orb-two, .premium-hub-orb-three { animation: premiumHubOrbFloat 3s ease-in-out infinite; }
+        .premium-hub-dot { animation: premiumHubDotPulse 1s ease-in-out infinite; }
+        .premium-hub-dot:nth-child(2) { animation-delay: .18s; }
+        .premium-hub-dot:nth-child(3) { animation-delay: .36s; }
+      `}</style>
+    </div>
+  );
+};
+
+
+
+const HomeImagePreloader = ({ bgToggle, progress, loadedCount, totalCount }) => {
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] flex min-h-screen items-center justify-center px-5 transition-colors duration-500 ${
+        bgToggle
+          ? "bg-gradient-to-br from-gray-950 via-slate-950 to-black text-white"
+          : "bg-gradient-to-br from-orange-50 via-white to-slate-100 text-slate-950"
+      }`}
+    >
+      <div
+        className={`relative w-full max-w-md overflow-hidden rounded-[2rem] border p-6 text-center shadow-2xl ${
+          bgToggle
+            ? "border-white/10 bg-white/[0.06] shadow-black/40"
+            : "border-white bg-white/90 shadow-slate-200/80"
+        }`}
+      >
+        <div className="absolute rounded-full -left-16 -top-16 h-36 w-36 bg-orange-500/20 blur-3xl" />
+        <div className="absolute rounded-full -bottom-16 -right-16 h-36 w-36 bg-sky-500/20 blur-3xl" />
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto text-2xl font-black text-white shadow-xl rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500">
+            P
+          </div>
+
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.25em] text-orange-500">
+            Premium Hub
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black">
+            Preparing posters once
+          </h2>
+
+          <p
+            className={`mt-2 text-sm font-semibold ${
+              bgToggle ? "text-gray-300" : "text-slate-600"
+            }`}
+          >
+            Images are being decoded and cached before the page opens.
+          </p>
+
+          <div
+            className={`mt-6 overflow-hidden rounded-full p-1 ${
+              bgToggle ? "bg-white/10" : "bg-slate-100"
+            }`}
+          >
+            <div
+              className="h-3 transition-all duration-300 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between mt-3 text-xs font-black">
+            <span>{loadedCount}/{totalCount} images</span>
+            <span>{progress}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ThemeRopeToggle = ({ bgToggle, onToggle }) => {
   const startYRef = useRef(0);
@@ -1806,6 +2335,8 @@ const PremiumPosterSlider = ({
           className="relative z-10 mx-7 h-[130px] w-full max-w-3xl overflow-hidden rounded-xl border border-white/20 bg-white shadow-lg transition duration-500 hover:scale-[1.01] active:scale-[0.99] sm:mx-10 sm:h-[170px] lg:h-[220px]"
         >
           <img
+        loading="eager"
+        decoding="async"
             src={poster.poster}
             alt={poster.name}
             onError={handleImageError}
@@ -1936,6 +2467,8 @@ const PremiumBrandCard = ({ brand, index, onClick }) => {
       className={`premium-card premium-float group relative overflow-hidden rounded-xl border border-orange-300/30 bg-white text-left text-white shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-lg active:scale-[0.98] sm:rounded-2xl ${shapeClass}`}
     >
       <img
+        loading="eager"
+        decoding="async"
         src={brand.poster}
         alt={brand.name}
         onError={handleImageError}
@@ -1975,6 +2508,8 @@ const GroceryBrandCard = ({ brand, index, onClick }) => {
       style={{ animationDelay: `${index * 0.12}s` }}
     >
       <img
+        loading="eager"
+        decoding="async"
         src={brand.poster}
         alt={brand.name}
         onError={handleImageError}
@@ -2024,6 +2559,8 @@ const FashionBrandCircle = ({ brand, index, onClick }) => {
     >
       <div className="relative w-24 h-24 overflow-hidden transition duration-300 bg-white border-4 rounded-full shadow-lg fashion-circle border-pink-300/70 group-hover:scale-105 group-hover:border-pink-500 sm:h-28 sm:w-28 lg:h-32 lg:w-32">
         <img
+        loading="eager"
+        decoding="async"
           src={brand.poster}
           alt={brand.name}
           onError={handleImageError}
@@ -2065,6 +2602,8 @@ const HomeApplianceParallelogram = ({ brand, index, onClick }) => {
     >
       <div className="relative w-full h-full overflow-hidden transition duration-300 bg-white border shadow-lg ha-card border-sky-300/40 group-hover:shadow-2xl">
         <img
+        loading="eager"
+        decoding="async"
           src={brand.poster}
           alt={brand.name}
           onError={handleImageError}
@@ -2130,6 +2669,8 @@ const ToyMobileBoxCard = ({ brand, index, onClick }) => {
       style={{ animationDelay: `${index * 0.1}s` }}
     >
       <img
+        loading="eager"
+        decoding="async"
         src={brand.poster}
         alt={brand.name}
         onError={handleImageError}
@@ -2209,6 +2750,8 @@ const ToyBrandCard = ({ brand, index, isEngine, onClick }) => {
 
       <div className="relative z-10 w-full h-full overflow-hidden transition duration-300 bg-white border-2 shadow-lg rounded-2xl border-yellow-300/80 group-hover:shadow-2xl">
         <img
+        loading="eager"
+        decoding="async"
           src={brand.poster}
           alt={brand.name}
           onError={handleImageError}
