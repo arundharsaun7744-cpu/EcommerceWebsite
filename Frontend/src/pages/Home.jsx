@@ -1100,18 +1100,9 @@ const handleBrandClick = async (brand) => {
       return secondSection.count - firstSection.count;
     });
 
-  if (!imagesReady) {
-    return (
-      <HomeImagePreloader
-        bgToggle={bgToggle}
-        progress={progress}
-        loadedCount={loadedCount}
-        totalCount={totalCount}
-      />
-    );
-  }
-
-  if (showPremiumIntro) {
+  // First loading/preloader animation removed.
+  // Only Premium Hub opening animation will show while images preload once + during intro.
+  if (!imagesReady || showPremiumIntro) {
     return <PremiumHubOpeningAnimation bgToggle={bgToggle} />;
   }
 
