@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/amazon-logo-on-transparent-background-free-vector.jpg";
 
 import {
   AppBar,
@@ -16,6 +15,7 @@ import {
   ShoppingCart,
   Favorite,
   AccountCircle,
+  AutoAwesome,
 } from "@mui/icons-material";
 
 import { motion } from "framer-motion";
@@ -75,7 +75,7 @@ const Header = () => {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/get-user?user_id=${userId}`,
+          `${API_BASE_URL}/get-user?user_id=${userId}`
         );
 
         const data = await response.json();
@@ -157,7 +157,6 @@ const Header = () => {
         opacity: showHeader ? 1 : 0,
       }}
       transition={{ type: "spring", stiffness: 120, damping: 18 }}
-      className="shadow-card-lg"
       style={{
         position: "sticky",
         top: 0,
@@ -167,197 +166,112 @@ const Header = () => {
       <AppBar
         position="sticky"
         sx={{
-          backgroundColor: "#ffffff",
-          color: "#111111",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          background:
+            "linear-gradient(135deg, rgba(17,24,39,0.98), rgba(88,28,135,0.96), rgba(234,88,12,0.94))",
+          color: "#ffffff",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          backdropFilter: "blur(16px)",
         }}
-        className="backdrop-blur-md"
       >
         <Toolbar
           sx={{
             display: "flex",
             justifyContent: "space-between",
+            gap: { xs: 1, sm: 2 },
             padding: { xs: "0 0.5rem", sm: "0 1rem", md: "0 2rem" },
-            minHeight: { xs: 56, sm: 64 },
+            minHeight: { xs: 62, sm: 72 },
           }}
         >
-          {/* Logo */}
+          {/* Premium Logo */}
           <motion.div
-            whileHover={{ scale: 1.08, rotate: 2 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
             className="cursor-pointer"
             style={{
               display: "flex",
               alignItems: "center",
-              width: 150,
+              gap: "10px",
+              minWidth: "fit-content",
             }}
             onClick={() => navigate("/")}
           >
-            <img
-              className="text-xl font-extrabold sm:text-2xl md:text-3xl"
-              style={{
-                letterSpacing: "1px",
-                paddingTop: "8px",
-              }}
-              src={logo}
-              alt="Logo"
-            />
-          </motion.div>
-
-          {/* Search Bar */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              backgroundColor: "rgba(255,255,255,0.95)",
-              borderRadius: "8px",
-              boxShadow: "0 2px 8px rgba(102,126,234,0.08)",
-              padding: { xs: "2px 8px", sm: "4px 12px" },
-              width: { xs: "60%", sm: "40%", md: "35%" },
-              border: "2px solid #e2e8f0",
-              minWidth: "120px",
-              maxWidth: "500px",
-              position: "relative",
-            }}
-            className="transition-all duration-300"
-          >
-            <SearchIcon sx={{ color: "#667eea", marginRight: "8px" }} />
-
-            <InputBase
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyDown={handleSearch}
+            <Box
               sx={{
-                width: "100%",
-                fontSize: { xs: "13px", sm: "14px", md: "15px" },
-                "& input:focus": {
-                  outline: "none",
-                  boxShadow: "none",
-                },
-              }}
-              className="focus:outline-none"
-            />
-
-            <Popover
-              open={Boolean(searchAnchor) && searchResults.length > 0}
-              anchorEl={searchAnchor}
-              onClose={handleCloseSearch}
-              anchorOrigin={{
-                vertical: "bottom",
-                horizontal: "left",
-              }}
-              transformOrigin={{
-                vertical: "top",
-                horizontal: "left",
-              }}
-              PaperProps={{
-                sx: {
-                  width: searchAnchor?.offsetWidth || 300,
-                  marginTop: "8px",
-                  boxShadow: "0 4px 16px rgba(102,126,234,0.15)",
-                  borderRadius: "12px",
-                  maxHeight: "400px",
-                  overflowY: "auto",
-                },
+                width: { xs: 38, sm: 46 },
+                height: { xs: 38, sm: 46 },
+                borderRadius: "16px",
+                background:
+                  "linear-gradient(135deg, #ffffff, #fed7aa, #fb923c)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#111827",
+                boxShadow: "0 8px 22px rgba(251,146,60,0.35)",
+                border: "1px solid rgba(255,255,255,0.55)",
               }}
             >
-              <Box sx={{ p: 1 }}>
-                {searchResults.map((product) => (
-                  <motion.div
-                    key={product.id}
-                    whileHover={{ backgroundColor: "#f5f5f5" }}
-                  >
-                    <Box
-                      onClick={() => {
-                        navigate(`/product/${product.id}`);
-                        handleCloseSearch();
-                        setSearchQuery("");
-                      }}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 2,
-                        p: 1.5,
-                        cursor: "pointer",
-                        borderRadius: "8px",
-                        transition: "all 0.2s",
-                        "&:hover": {
-                          backgroundColor: "#f5f5f5",
-                        },
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: "6px",
-                          backgroundColor: "#f0f0f0",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          style={{
-                            maxWidth: "100%",
-                            maxHeight: "100%",
-                            objectFit: "contain",
-                          }}
-                        />
-                      </Box>
+              <AutoAwesome fontSize="small" />
+            </Box>
 
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box
-                          sx={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: "#111",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {product.name}
-                        </Box>
-
-                        <Box
-                          sx={{
-                            fontSize: "12px",
-                            color: "#666",
-                            fontWeight: 700,
-                            marginTop: "4px",
-                          }}
-                        >
-                          ₹{product.price?.toLocaleString()}
-                        </Box>
-                      </Box>
-                    </Box>
-                  </motion.div>
-                ))}
+            <Box sx={{ display: { xs: "none", sm: "block" } }}>
+              <Box
+                sx={{
+                  fontSize: { sm: "20px", md: "24px" },
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  letterSpacing: "-0.6px",
+                }}
+              >
+                Premium Hub
               </Box>
-            </Popover>
-          </Box>
+
+              <Box
+                sx={{
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  letterSpacing: "2px",
+                  color: "#fed7aa",
+                  textTransform: "uppercase",
+                  marginTop: "4px",
+                }}
+              >
+                Brand Stores
+              </Box>
+            </Box>
+
+            <Box
+              sx={{
+                display: { xs: "block", sm: "none" },
+                fontSize: "18px",
+                fontWeight: 900,
+                letterSpacing: "-0.5px",
+              }}
+            >
+              PH
+            </Box>
+          </motion.div>
+
 
           {/* Right Icons */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: { xs: "2px", sm: "6px" },
+              gap: { xs: "2px", sm: "8px" },
             }}
           >
             {/* Wishlist */}
-            <motion.div
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.95 }}
-              className="transition-transform"
-            >
+            <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.95 }}>
               <IconButton
-                sx={{ color: "red", p: { xs: 0.5, sm: 1 } }}
+                sx={{
+                  color: "#ffffff",
+                  p: { xs: 0.55, sm: 1 },
+                  backgroundColor: "rgba(255,255,255,0.12)",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.22)",
+                  },
+                }}
                 onClick={() => navigate("/wishlist")}
                 aria-label="Wishlist"
               >
@@ -366,16 +280,16 @@ const Header = () => {
             </motion.div>
 
             {/* Orders / Cart */}
-            <motion.div
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.95 }}
-              className="transition-transform"
-            >
+            <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.95 }}>
               <IconButton
                 sx={{
-                  color: "#667eea",
-                  p: { xs: 0.5, sm: 1 },
+                  color: "#ffffff",
+                  p: { xs: 0.55, sm: 1 },
                   position: "relative",
+                  backgroundColor: "rgba(255,255,255,0.12)",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.22)",
+                  },
                 }}
                 onClick={() => navigate("/orders")}
                 aria-label="Orders"
@@ -388,8 +302,8 @@ const Header = () => {
                       position: "absolute",
                       top: -8,
                       right: -8,
-                      backgroundColor: "#FF9900",
-                      color: "white",
+                      backgroundColor: "#ffffff",
+                      color: "#ea580c",
                       borderRadius: "50%",
                       width: 20,
                       height: 20,
@@ -397,7 +311,8 @@ const Header = () => {
                       alignItems: "center",
                       justifyContent: "center",
                       fontSize: "12px",
-                      fontWeight: "bold",
+                      fontWeight: 900,
+                      boxShadow: "0 4px 10px rgba(0,0,0,0.18)",
                     }}
                   >
                     {cartItems.length}
@@ -406,12 +321,8 @@ const Header = () => {
               </IconButton>
             </motion.div>
 
-            {/* ✅ Profile image only - no dropdown */}
-            <motion.div
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.95 }}
-              className="transition-transform"
-            >
+            {/* Profile */}
+            <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.95 }}>
               <IconButton
                 onClick={() => navigate("/profile")}
                 aria-label="Profile"
@@ -427,18 +338,19 @@ const Header = () => {
                       e.currentTarget.style.display = "none";
                     }}
                     style={{
-                      width: 34,
-                      height: 34,
+                      width: 36,
+                      height: 36,
                       borderRadius: "50%",
                       objectFit: "cover",
-                      border: "2px solid #16a34a",
+                      border: "2px solid #fed7aa",
+                      boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
                     }}
                   />
                 ) : (
                   <AccountCircle
                     sx={{
-                      color: "green",
-                      fontSize: 34,
+                      color: "#ffffff",
+                      fontSize: 36,
                     }}
                   />
                 )}

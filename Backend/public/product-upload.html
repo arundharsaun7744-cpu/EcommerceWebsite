@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Product Manager</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    :root {
+      --blue: #2874f0;
+      --blue-dark: #1d4ed8;
+      --orange: #ff9900;
+      --bg: #f1f5f9;
+      --text: #111827;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 270px;
+      background: linear-gradient(180deg, #0f172a, #020617);
+      color: white;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 22px 16px;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 8px 25px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 18px;
+    }
+
+    .brand-logo {
+      width: 45px;
+      height: 45px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--blue), var(--orange));
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .brand h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .menu-title {
+      margin: 18px 10px 10px;
+      color: #94a3b8;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+
+    .menu-item {
+      padding: 13px 14px;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      transition: 0.2s;
+      user-select: none;
+    }
+
+    .menu-item:hover,
+    .menu-item.active {
+      background: var(--blue);
+      color: white;
+      transform: translateX(3px);
+    }
+
+    .main {
+      margin-left: 270px;
+      width: calc(100% - 270px);
+      padding: 22px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #2874f0, #1e40af);
+      color: white;
+      padding: 24px;
+      border-radius: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+      box-shadow: 0 16px 35px rgba(40, 116, 240, 0.25);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: #dbeafe;
+      font-size: 14px;
+    }
+
+    .admin-chip {
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .stat-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: #eff6ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+    }
+
+    .stat-card h2 {
+      margin: 14px 0 0;
+      font-size: 34px;
+    }
+
+    .stat-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 430px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .panel-header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .panel-body {
+      padding: 22px;
+    }
+
+    label {
+      display: block;
+      margin-top: 16px;
+      margin-bottom: 8px;
+      color: #334155;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    select,
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      font-size: 15px;
+      outline: none;
+      background: white;
+      transition: 0.2s;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(40, 116, 240, 0.12);
+    }
+
+    .upload-box {
+      border: 2px dashed #cbd5e1;
+      background: #f8fafc;
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 8px;
+      transition: 0.2s;
+    }
+
+    .upload-box:hover {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+
+    .note {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      padding: 14px;
+      border-radius: 16px;
+      margin-top: 18px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .upload-btn {
+      width: 100%;
+      border: none;
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: white;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(40, 116, 240, 0.25);
+      transition: 0.2s;
+    }
+
+    .upload-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .upload-btn:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .message {
+      display: none;
+      margin-top: 16px;
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .preview-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      margin-top: 8px;
+    }
+
+    .listing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 15px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .filters select {
+      width: 190px;
+      padding: 11px;
+      font-size: 14px;
+    }
+
+    .filters input {
+      width: 230px;
+      padding: 11px;
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      background: white;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      padding: 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 15px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .product-name {
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: capitalize;
+    }
+
+    .price {
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .rating {
+      background: var(--green);
+      color: white;
+      padding: 5px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .offer {
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .empty {
+      padding: 45px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: #f8fafc;
+      flex-wrap: wrap;
+    }
+
+    .page-info {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .page-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      border: 1px solid var(--border);
+      background: white;
+      color: #334155;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .page-btn:hover,
+    .page-btn.active {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      padding: 18px;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 460px;
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: #eff6ff;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+
+    .modal h3 {
+      margin: 0;
+      font-size: 22px;
+      color: #0f172a;
+    }
+
+    .modal p {
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 10px 0 18px;
+      font-size: 14px;
+    }
+
+    .modal-details {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: 16px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      color: #334155;
+      line-height: 1.7;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .cancel-btn,
+    .confirm-btn {
+      border: none;
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cancel-btn {
+      background: #f1f5f9;
+      color: #334155;
+    }
+
+    .confirm-btn {
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: white;
+    }
+
+    /* 🌟 New Advanced Notification Styles */
+    .adv-notification {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      background: white;
+      border-left: 5px solid #16a34a;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+      border-radius: 16px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 9999;
+      transform: translateX(120%);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 420px;
+      width: calc(100% - 48px);
+    }
+
+    .adv-notification.show {
+      transform: translateX(0);
+    }
+
+    .adv-icon-box {
+      width: 44px;
+      height: 44px;
+      background: #dcfce7;
+      color: #16a34a;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .adv-content {
+      flex-grow: 1;
+    }
+
+    .adv-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+    }
+
+    .adv-desc {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .adv-timer-badge {
+      display: inline-block;
+      margin-top: 6px;
+      background: #f1f5f9;
+      color: #334155;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 1150px) {
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 780px) {
+      .layout {
+        display: block;
+      }
+
+      .sidebar {
+        position: relative;
+        width: 100%;
+        bottom: auto;
+      }
+
+      .main {
+        margin-left: 0;
+        width: 100%;
+        padding: 15px;
+      }
+
+      .hero {
+        display: block;
+      }
+
+      .admin-chip {
+        display: inline-block;
+        margin-top: 15px;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .listing-header {
+        display: block;
+      }
+
+      .filters {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .filters select,
+      .filters input {
+        width: 100%;
+      }
+
+      .modal-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .adv-notification {
+        top: 16px;
+        right: 16px;
+        width: calc(100% - 32px);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="advToast" class="adv-notification">
+    <div class="adv-icon-box">✓</div>
+    <div class="adv-content">
+      <p class="adv-title" id="advToastTitle">Success</p>
+      <p class="adv-desc" id="advToastDesc">Uploaded successfully!</p>
+      <span class="adv-timer-badge" id="advToastTimer">Page will refresh in 10s...</span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div>
+          <h2>AdminCart</h2>
+          <p>Seller Product Manager</p>
+        </div>
+      </div>
+
+      <div class="menu-title">Dashboard</div>
+      <div class="menu-item active" data-category="all">📤 Upload Products</div>
+      <div class="menu-item" data-category="all">📦 Product Listing</div>
+      <div class="menu-item" data-category="all">📊 Sales Analytics</div>
+
+      <div class="menu-title">Categories</div>
+      <div class="menu-item category-menu" data-category="electronics">💻 Electronics</div>
+      <div class="menu-item category-menu" data-category="grocery">🛒 Grocery</div>
+      <div class="menu-item category-menu" data-category="fashion">👕 Fashion</div>
+      <div class="menu-item category-menu" data-category="home_appliances">🏠 Home Appliances</div>
+      <div class="menu-item category-menu" data-category="toys">🧸 Toys</div>
+      <div class="menu-item category-menu" data-category="mixed">🧩 Mixed Category</div>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <div>
+          <h1>Product Inventory Dashboard</h1>
+          <p>Excel file choose pannina udane right side la preview show aagum.</p>
+        </div>
+        <div class="admin-chip">Admin Mode</div>
+      </section>
+
+      <section class="stats">
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-title">Preview Products</div>
+            <div class="stat-icon">📦</div>
+          </div>
+          <h2 id="totalCount">0</h2>
+          <p>Current selected Excel products</p>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-title">Electronics</div>
+            <div class="stat-icon">💻</div>
+          </div>
+          <h2 id="electronicsCount">0</h2>
+          <p>From selected Excel</p>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-title">Grocery</div>
+            <div class="stat-icon">🛒</div>
+          </div>
+          <h2 id="groceryCount">0</h2>
+          <p>From selected Excel</p>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-title">Other</div>
+            <div class="stat-icon">⭐</div>
+          </div>
+          <h2 id="otherCount">0</h2>
+          <p>Fashion, toys, appliances</p>
+        </div>
+      </section>
+
+      <section class="content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Excel Product Upload</h2>
+            <p>File choose pannina preview. Upload click panna confirmation.</p>
+          </div>
+
+          <div class="panel-body">
+            <form id="uploadForm">
+              <label>Select Product Category</label>
+              <select name="category" id="category" required>
+                <option value="">-- Select Product --</option>
+                <option value="electronics">Electronics</option>
+                <option value="grocery">Grocery</option>
+                <option value="fashion">Fashion</option>
+                <option value="home_appliances">Home Appliances</option>
+                <option value="toys">Toys</option>
+                <option value="mixed">Mixed Category</option>
+              </select>
+
+              <label>Upload Excel Sheet</label>
+              <div class="upload-box">
+                <input
+                  type="file"
+                  name="excelFile"
+                  id="excelFile"
+                  accept=".xlsx,.xls"
+                  required
+                />
+              </div>
+
+              <div class="note">
+                Minimum <b>5 products</b> upload pannaum.
+                <br /><br />
+                <b>Single category columns:</b>
+                <br />
+                productName, price, quantity, sales, offer, rating
+                <br /><br />
+                <b>Mixed category columns:</b>
+                <br />
+                category, productName, price, quantity, sales, offer, rating
+              </div>
+
+              <button class="upload-btn" type="submit" id="uploadBtn">
+                Upload Products
+              </button>
+            </form>
+
+            <div id="message" class="message"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header listing-header">
+            <div>
+              <h2>Excel Products Preview</h2>
+              <p>Upload Excel Sheet input la file choose panna products inga show aagum.</p>
+              <span class="preview-badge" id="previewStatus">No file selected</span>
+            </div>
+
+            <div class="filters">
+              <select id="filterCategory">
+                <option value="all">All Categories</option>
+                <option value="electronics">Electronics</option>
+                <option value="grocery">Grocery</option>
+                <option value="fashion">Fashion</option>
+                <option value="home_appliances">Home Appliances</option>
+                <option value="toys">Toys</option>
+              </select>
+
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search preview product..."
+              />
+            </div>
+          </div>
+
+          <div id="tableBox">
+            <div class="empty">
+              Upload Excel Sheet input la file choose pannunga bro. Products inga right side la show aagum.
+            </div>
+          </div>
+
+          <div class="pagination" id="paginationBox" style="display: none">
+            <div class="page-info" id="pageInfo">Showing 0 - 0 of 0</div>
+            <div class="page-buttons" id="pageButtons"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <div class="modal-icon">📤</div>
+      <h3>Confirm Product Upload</h3>
+      <p>Confirm pannina apram dhaan Excel products database la save aagum.</p>
+
+      <div class="modal-details" id="confirmDetails"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="cancel-btn" id="cancelUploadBtn">Cancel</button>
+        <button type="button" class="confirm-btn" id="confirmUploadBtn">Yes, Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const messageBox = document.getElementById("message");
+    const tableBox = document.getElementById("tableBox");
+    const uploadBtn = document.getElementById("uploadBtn");
+
+    const totalCount = document.getElementById("totalCount");
+    const electronicsCount = document.getElementById("electronicsCount");
+    const groceryCount = document.getElementById("groceryCount");
+    const otherCount = document.getElementById("otherCount");
+
+    const categorySelect = document.getElementById("category");
+    const excelFileInput = document.getElementById("excelFile");
+    const filterCategory = document.getElementById("filterCategory");
+    const searchInput = document.getElementById("searchInput");
+    const previewStatus = document.getElementById("previewStatus");
+
+    const confirmModal = document.getElementById("confirmModal");
+    const confirmDetails = document.getElementById("confirmDetails");
+    const cancelUploadBtn = document.getElementById("cancelUploadBtn");
+    const confirmUploadBtn = document.getElementById("confirmUploadBtn");
+
+    const paginationBox = document.getElementById("paginationBox");
+    const pageInfo = document.getElementById("pageInfo");
+    const pageButtons = document.getElementById("pageButtons");
+
+    const productsPerPage = 5;
+    const maxVisiblePages = 5;
+
+    let currentPage = 1;
+    let previewProducts = [];
+    let pendingFormData = null;
+
+    categorySelect.addEventListener("change", function () {
+      if (excelFileInput.files[0]) {
+        readExcelAndPreview();
+      }
+    });
+
+    excelFileInput.addEventListener("change", function () {
+      readExcelAndPreview();
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const category = categorySelect.value;
+      const excelFile = excelFileInput.files[0];
+
+      if (!category) {
+        showMessage("Please select product category first", "error");
+        return;
+      }
+
+      if (!excelFile) {
+        showMessage("Please upload Excel file", "error");
+        return;
+      }
+
+      if (previewProducts.length < 5) {
+        showMessage("Minimum 5 products upload pannaum", "error");
+        return;
+      }
+
+      pendingFormData = new FormData();
+      pendingFormData.append("category", category);
+      pendingFormData.append("excelFile", excelFile);
+
+      const categoryText = categorySelect.options[categorySelect.selectedIndex].text;
+
+      confirmDetails.innerHTML = `
+        <b>Selected Category:</b> ${categoryText}
+        <br />
+        <b>Excel File:</b> ${excelFile.name}
+        <br />
+        <b>Preview Products:</b> ${previewProducts.length}
+        <br />
+        <b>File Size:</b> ${(excelFile.size / 1024).toFixed(2)} KB
+      `;
+
+      openConfirmModal();
+    });
+
+    confirmUploadBtn.addEventListener("click", async function () {
+      if (!pendingFormData) {
+        closeConfirmModal();
+        return;
+      }
+
+      await uploadConfirmedProducts();
+    });
+
+    cancelUploadBtn.addEventListener("click", function () {
+      pendingFormData = null;
+      closeConfirmModal();
+      showMessage("Upload cancelled", "error");
+    });
+
+    confirmModal.addEventListener("click", function (e) {
+      if (e.target === confirmModal) {
+        pendingFormData = null;
+        closeConfirmModal();
+      }
+    });
+
+    filterCategory.addEventListener("change", function () {
+      currentPage = 1;
+      renderProducts();
+    });
+
+    searchInput.addEventListener("input", function () {
+      currentPage = 1;
+      renderProducts();
+    });
+
+    document.querySelectorAll(".category-menu").forEach(function (item) {
+      item.addEventListener("click", function () {
+        const selectedCategory = item.getAttribute("data-category");
+
+        setActiveMenu(item);
+        categorySelect.value = selectedCategory;
+
+        if (selectedCategory === "mixed") {
+          filterCategory.value = "all";
+        } else {
+          filterCategory.value = selectedCategory;
+        }
+
+        searchInput.value = "";
+        currentPage = 1;
+
+        if (excelFileInput.files[0]) {
+          readExcelAndPreview();
+        } else {
+          renderProducts();
+        }
+
+        categorySelect.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    });
+
+    function readExcelAndPreview() {
+      const category = categorySelect.value;
+      const file = excelFileInput.files[0];
+
+      if (!category) {
+        showMessage("First category select pannunga bro", "error");
+        excelFileInput.value = "";
+        previewProducts = [];
+        updateCounts(previewProducts);
+        renderProducts();
+        previewStatus.innerText = "No file selected";
+        return;
+      }
+
+      if (!file) return;
+
+      if (!window.XLSX) {
+        showMessage("Excel reader load aagala. Internet/CDN check pannunga.", "error");
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function (event) {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+
+          const firstSheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet);
+
+          if (!rows.length) {
+            throw new Error("Excel file is empty");
+          }
+
+          const allowedCategories = [
+            "electronics",
+            "grocery",
+            "fashion",
+            "home_appliances",
+            "toys",
+          ];
+
+          let requiredColumns = [
+            "productName",
+            "price",
+            "quantity",
+            "sales",
+            "offer",
+            "rating",
+          ];
+
+          if (category === "mixed") {
+            requiredColumns = [
+              "category",
+              "productName",
+              "price",
+              "quantity",
+              "sales",
+              "offer",
+              "rating",
+            ];
+          }
+
+          for (const row of rows) {
+            for (const column of requiredColumns) {
+              if (
+                row[column] === undefined ||
+                row[column] === null ||
+                row[column] === ""
+              ) {
+                throw new Error(`Missing column or value: ${column}`);
+              }
+            }
+          }
+
+          previewProducts = rows.map(function (row) {
+            const finalCategory =
+              category === "mixed"
+                ? String(row.category).toLowerCase().trim()
+                : category;
+
+            if (!allowedCategories.includes(finalCategory)) {
+              throw new Error(
+                `Invalid category: ${row.category}. Use electronics, grocery, fashion, home_appliances, toys`
+              );
+            }
+
+            return {
+              category: finalCategory,
+              productName: row.productName,
+              price: row.price,
+              quantity: row.quantity,
+              sales: row.sales,
+              offer: row.offer,
+              rating: row.rating,
+            };
+          });
+
+          currentPage = 1;
+          updateCounts(previewProducts);
+          renderProducts();
+
+          previewStatus.innerText = `${previewProducts.length} products previewing`;
+          showMessage("Excel products preview loaded successfully", "success");
+        } catch (error) {
+          previewProducts = [];
+          updateCounts(previewProducts);
+          renderProducts();
+          previewStatus.innerText = "Preview failed";
+          showMessage(error.message, "error");
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    async function uploadConfirmedProducts() {
+      try {
+        closeConfirmModal();
+
+        uploadBtn.disabled = true;
+        confirmUploadBtn.disabled = true;
+        uploadBtn.innerText = "Uploading...";
+
+        const response = await fetch("/api/upload-products", {
+          method: "POST",
+          body: pendingFormData,
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          showMessage(result.message, "error");
+          return;
+        }
+
+        previewProducts = result.data || previewProducts;
+
+        // 🌟 Advanced Success Notification Setup
+        showAdvancedSuccessNotification(previewProducts.length);
+
+        pendingFormData = null;
+        currentPage = 1;
+
+        updateCounts(previewProducts);
+        renderProducts();
+        previewStatus.innerText = `${previewProducts.length} products uploaded`;
+      } catch (error) {
+        showMessage("Upload failed. Please try again.", "error");
+      } finally {
+        uploadBtn.disabled = false;
+        confirmUploadBtn.disabled = false;
+        uploadBtn.innerText = "Upload Products";
+      }
+    }
+
+    // 🌟 Advanced Notification Trigger & 10s Countdown Function
+    function showAdvancedSuccessNotification(count) {
+      const toast = document.getElementById("advToast");
+      const title = document.getElementById("advToastTitle");
+      const desc = document.getElementById("advToastDesc");
+      const timerBadge = document.getElementById("advToastTimer");
+
+      title.innerText = "Upload Success! 🚀";
+      desc.innerText = `${count} Products saved Successfully`;
+      
+      toast.classList.add("show");
+
+      let timeLeft = 10;
+      timerBadge.innerText = `Page will refresh in ${timeLeft}s...`;
+
+      const interval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+          timerBadge.innerText = `Page will refresh in ${timeLeft}s...`;
+        } else {
+          clearInterval(interval);
+          timerBadge.innerText = "Refreshing page now...";
+          window.location.reload(); // 🔄 Page Refresh Action
+        }
+      }, 1000);
+    }
+
+    function updateCounts(products) {
+      const electronics = products.filter((p) => p.category === "electronics").length;
+      const grocery = products.filter((p) => p.category === "grocery").length;
+
+      const others = products.filter(
+        (p) => p.category !== "electronics" && p.category !== "grocery"
+      ).length;
+
+      totalCount.innerText = products.length;
+      electronicsCount.innerText = electronics;
+      groceryCount.innerText = grocery;
+      otherCount.innerText = others;
+    }
+
+    function getFilteredProducts() {
+      const selected = filterCategory.value;
+      const search = searchInput.value.toLowerCase().trim();
+
+      let products = [...previewProducts];
+
+      if (selected !== "all") {
+        products = products.filter((p) => p.category === selected);
+      }
+
+      if (search) {
+        products = products.filter((p) =>
+          String(p.productName).toLowerCase().includes(search)
+        );
+      }
+
+      return products;
+    }
+
+    function renderProducts() {
+      const filteredProducts = getFilteredProducts();
+      const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+
+      if (currentPage > totalPages) {
+        currentPage = totalPages || 1;
+      }
+
+      const startIndex = (currentPage - 1) * productsPerPage;
+      const endIndex = startIndex + productsPerPage;
+      const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+      showTable(paginatedProducts);
+      renderPagination(filteredProducts.length, totalPages);
+    }
+
+    function renderPagination(totalItems, totalPages) {
+      if (totalItems === 0) {
+        paginationBox.style.display = "none";
+        pageInfo.innerText = "Showing 0 - 0 of 0";
+        pageButtons.innerHTML = "";
+        return;
+      }
+
+      paginationBox.style.display = "flex";
+
+      const start = (currentPage - 1) * productsPerPage + 1;
+      const end = Math.min(currentPage * productsPerPage, totalItems);
+
+      pageInfo.innerText = `Showing ${start} - ${end} of ${totalItems}`;
+
+      let startPage = currentPage;
+      let endPage = currentPage + maxVisiblePages - 1;
+
+      if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      let html = `
+        <button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? "disabled" : ""}>
+          Prev
+        </button>
+      `;
+
+      for (let i = startPage; i <= endPage; i++) {
+        html += `
+          <button class="page-btn ${i === currentPage ? "active" : ""}" onclick="changePage(${i})">
+            ${i}
+          </button>
+        `;
+      }
+
+      html += `
+        <button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? "disabled" : ""}>
+          Next
+        </button>
+      `;
+
+      pageButtons.innerHTML = html;
+    }
+
+    function changePage(page) {
+      const filteredProducts = getFilteredProducts();
+      const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+
+      if (page < 1 || page > totalPages) return;
+
+      currentPage = page;
+      renderProducts();
+    }
+
+    function showMessage(text, type) {
+      messageBox.style.display = "block";
+      messageBox.className = "message " + type;
+      messageBox.innerText = text;
+
+      setTimeout(() => {
+        messageBox.style.display = "none";
+      }, 5000);
+    }
+
+    function formatCategory(category) {
+      if (!category) return "-";
+      return String(category).replace("_", " ");
+    }
+
+    function showTable(products) {
+      if (!products.length) {
+        tableBox.innerHTML = `
+          <div class="empty">
+            Upload Excel Sheet input la file choose pannunga bro. Products right side la show aagum.
+          </div>
+        `;
+        return;
+      }
+
+      let html = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>S.No</th>
+                <th>Category</th>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Sales</th>
+                <th>Offer</th>
+                <th>Rating</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      products.forEach((product, index) => {
+        const serialNumber = (currentPage - 1) * productsPerPage + index + 1;
+
+        html += `
+          <tr>
+            <td>#${serialNumber}</td>
+            <td><span class="pill">${formatCategory(product.category)}</span></td>
+            <td class="product-name">${product.productName || "-"}</td>
+            <td class="price">₹${product.price || 0}</td>
+            <td>${product.quantity || 0}</td>
+            <td>${product.sales || 0}</td>
+            <td class="offer">${product.offer || "-"}</td>
+            <td><span class="rating">★ ${product.rating || "-"}</span></td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      tableBox.innerHTML = html;
+    }
+
+    function openConfirmModal() {
+      confirmModal.style.display = "flex";
+    }
+
+    function closeConfirmModal() {
+      confirmModal.style.display = "none";
+    }
+
+    function setActiveMenu(activeItem) {
+      document.querySelectorAll(".menu-item").forEach(function (item) {
+        item.classList.remove("active");
+      });
+
+      activeItem.classList.add("active");
+    }
+  </script>
+</body>
+</html>

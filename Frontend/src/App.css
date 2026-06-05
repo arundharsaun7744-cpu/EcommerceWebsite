@@ -1,5 +1,53 @@
-body, #root {
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
   margin: 0;
-  padding: 0;
+  transition: background 0.5s ease, color 0.5s ease;
+}
+
+.app-theme {
   min-height: 100vh;
+  transition: background 0.5s ease, color 0.5s ease;
+}
+
+.app-light {
+  background: #ffffff;
+  color: #111827;
+}
+
+.app-dark {
+  background: linear-gradient(135deg, #020617 0%, #111827 45%, #312e81 100%);
+  color: #ffffff;
+}
+
+/* Common components dark support */
+.dark-theme header,
+.dark-theme footer {
+  background: #020617 !important;
+  color: #ffffff !important;
+}
+
+.dark-theme main {
+  background: transparent;
+  color: #ffffff;
+}
+
+.dark-theme input,
+.dark-theme select,
+.dark-theme textarea {
+  background: #030712;
+  color: #ffffff;
+  border-color: #374151;
+}
+
+.dark-theme input::placeholder {
+  color: #9ca3af;
+}
+
+.dark-theme button {
+  transition: 0.25s ease;
 }
