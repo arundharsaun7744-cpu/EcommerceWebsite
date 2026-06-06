@@ -27,6 +27,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}`;
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
@@ -53,17 +54,23 @@ const getProfileImageUrl = (image) => {
 };
 
 const Profile = ({ bgToggle, setBgToggle }) => {
+  const navigate = useNavigate();
+
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
 
+  const [loginPopupOpen, setLoginPopupOpen] = useState(false);
+  const [isLoginRequired, setIsLoginRequired] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       const userId = localStorage.getItem("u_id");
 
       if (!userId) {
+        setIsLoginRequired(true);
         setLoading(false);
         return;
       }
@@ -75,11 +82,17 @@ const Profile = ({ bgToggle, setBgToggle }) => {
 
         const data = await response.json();
 
-        if (response.ok && data.success) {
+        if (response.ok && data.success && data.user) {
           setUserData(data.user);
+          setIsLoginRequired(false);
+        } else {
+          setUserData(null);
+          setIsLoginRequired(true);
         }
       } catch (error) {
         console.error("Profile fetch error:", error);
+        setUserData(null);
+        setIsLoginRequired(true);
       } finally {
         setLoading(false);
       }
@@ -88,6 +101,19 @@ const Profile = ({ bgToggle, setBgToggle }) => {
     fetchProfile();
   }, []);
 
+  // 15 seconds once login required message
+  useEffect(() => {
+    if (loading) return undefined;
+
+    if (!isLoginRequired && userData) return undefined;
+
+    const timer = setTimeout(() => {
+      setLoginPopupOpen(true);
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [loading, isLoginRequired, userData]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowWelcome(false);
@@ -95,6 +121,20 @@ const Profile = ({ bgToggle, setBgToggle }) => {
 
     return () => clearTimeout(timer);
   }, []);
+
+  const handleLoginRedirect = () => {
+    setLoginPopupOpen(false);
+    navigate("/showlogin");
+  };
+
+  const handleProtectedAction = () => {
+    if (isLoginRequired || !userData) {
+      setLoginPopupOpen(true);
+      return true;
+    }
+
+    return false;
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -112,6 +152,8 @@ const Profile = ({ bgToggle, setBgToggle }) => {
   };
 
   const handleLinkAction = (type) => {
+    if (handleProtectedAction()) return;
+
     setActiveTab("settings");
 
     setTimeout(() => {
@@ -120,6 +162,8 @@ const Profile = ({ bgToggle, setBgToggle }) => {
   };
 
   const handleCopyId = async () => {
+    if (handleProtectedAction()) return;
+
     const userId = userData?.id || localStorage.getItem("u_id");
 
     if (!userId) return;
@@ -255,7 +299,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   </div>
 
                   <button
-                    onClick={() => setActiveTab("settings")}
+                    onClick={() => {
+                      if (handleProtectedAction()) return;
+                      setActiveTab("settings");
+                    }}
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold shadow-sm transition sm:text-sm ${
                       bgToggle
                         ? "border-white/10 bg-white/[0.06] text-gray-200 hover:bg-blue-500 hover:text-white"
@@ -285,8 +332,8 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                     bgToggle={bgToggle}
                     icon={<BadgeCheck size={15} />}
                     label="Status"
-                    value="Active"
-                    status="Verified"
+                    value={userData ? "Active" : "Login Required"}
+                    status={userData ? "Verified" : "Pending"}
                   />
 
                   <InfoBlock
@@ -304,8 +351,8 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                     bgToggle={bgToggle}
                     icon={<Star size={15} />}
                     label="Member"
-                    value="Standard"
-                    status="Active"
+                    value={userData ? "Standard" : "Guest"}
+                    status={userData ? "Active" : "Guest"}
                   />
                 </div>
               </div>
@@ -359,7 +406,7 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                           : "bg-blue-50 text-blue-700"
                       }`}
                     >
-                      {completion >= 80 ? "Great" : "Needs Update"}
+                      {completion >= 80 ? "Great" : "Needs Login"}
                     </span>
                   </div>
 
@@ -383,7 +430,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                 </div>
 
                 <button
-                  onClick={() => setActiveTab("settings")}
+                  onClick={() => {
+                    if (handleProtectedAction()) return;
+                    setActiveTab("settings");
+                  }}
                   className="w-full px-4 py-2.5 mt-4 text-xs font-bold text-white transition rounded-xl sm:mt-6 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm bg-blue-600 hover:bg-blue-700"
                 >
                   Complete Profile
@@ -481,7 +531,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   </div>
                 </div>
 
-                <button className="w-full px-5 py-3 text-sm font-bold text-white transition bg-blue-600 sm:w-fit rounded-2xl hover:bg-blue-700">
+                <button
+                  onClick={handleProtectedAction}
+                  className="w-full px-5 py-3 text-sm font-bold text-white transition bg-blue-600 sm:w-fit rounded-2xl hover:bg-blue-700"
+                >
                   Change Password
                 </button>
               </div>
@@ -567,7 +620,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-5 sm:flex sm:gap-3 sm:mt-8">
-                <button className="px-4 py-2.5 text-xs font-bold text-white transition bg-blue-600 rounded-xl sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm hover:bg-blue-700">
+                <button
+                  onClick={handleProtectedAction}
+                  className="px-4 py-2.5 text-xs font-bold text-white transition bg-blue-600 rounded-xl sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm hover:bg-blue-700"
+                >
                   Save Changes
                 </button>
 
@@ -650,6 +706,13 @@ const Profile = ({ bgToggle, setBgToggle }) => {
           : "bg-slate-100 text-slate-800"
       }`}
     >
+      <LoginRequiredModal
+        open={loginPopupOpen}
+        bgToggle={bgToggle}
+        onClose={() => setLoginPopupOpen(false)}
+        onLogin={handleLoginRedirect}
+      />
+
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div
           className={`absolute rounded-full -top-24 left-10 h-72 w-72 blur-3xl ${
@@ -697,7 +760,7 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   bgToggle ? "text-white" : "text-slate-950"
                 }`}
               >
-                Welcome, {userData?.userName || "User"}!
+                Welcome, {userData?.userName || "Guest User"}!
               </h1>
 
               <p
@@ -705,7 +768,9 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   bgToggle ? "text-gray-400" : "text-slate-500"
                 }`}
               >
-                Manage profile, security and account preferences.
+                {userData
+                  ? "Manage profile, security and account preferences."
+                  : "Login required to view and manage your profile details."}
               </p>
             </div>
 
@@ -735,7 +800,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
               </button>
 
               <button
-                onClick={() => setActiveTab("settings")}
+                onClick={() => {
+                  if (handleProtectedAction()) return;
+                  setActiveTab("settings");
+                }}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-white transition shadow-sm rounded-xl sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm bg-blue-600 hover:bg-blue-700"
               >
                 <Edit3 size={15} />
@@ -775,7 +843,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                     />
 
                     <button
-                      onClick={() => setActiveTab("settings")}
+                      onClick={() => {
+                        if (handleProtectedAction()) return;
+                        setActiveTab("settings");
+                      }}
                       className="absolute bottom-0 right-0 p-1.5 text-white transition bg-blue-600 rounded-full shadow-lg sm:p-2 hover:bg-blue-700"
                       title="Update profile image"
                     >
@@ -790,7 +861,7 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                         bgToggle ? "text-white" : "text-slate-950"
                       }`}
                     >
-                      {userData?.userName || "Explorer"}
+                      {userData?.userName || "Guest User"}
                     </h2>
 
                     <p
@@ -800,18 +871,22 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                     >
                       {userData?.email ||
                         userData?.phonenumber ||
-                        "New Customer"}
+                        "Login required"}
                     </p>
 
                     <div
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 mt-2 text-[10px] sm:text-xs font-black rounded-full sm:mt-4 ${
-                        bgToggle
-                          ? "bg-emerald-500/15 text-emerald-300"
-                          : "bg-emerald-50 text-emerald-700"
+                        userData
+                          ? bgToggle
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-emerald-50 text-emerald-700"
+                          : bgToggle
+                          ? "bg-amber-500/15 text-amber-300"
+                          : "bg-amber-50 text-amber-700"
                       }`}
                     >
                       <BadgeCheck size={12} />
-                      Active
+                      {userData ? "Active" : "Guest"}
                     </div>
                   </div>
                 </div>
@@ -837,7 +912,10 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   icon={<Fingerprint />}
                   label="Security"
                   active={activeTab === "security"}
-                  onClick={() => setActiveTab("security")}
+                  onClick={() => {
+                    if (handleProtectedAction()) return;
+                    setActiveTab("security");
+                  }}
                 />
 
                 <NavToggle
@@ -845,27 +923,107 @@ const Profile = ({ bgToggle, setBgToggle }) => {
                   icon={<Settings />}
                   label="Settings"
                   active={activeTab === "settings"}
-                  onClick={() => setActiveTab("settings")}
+                  onClick={() => {
+                    if (handleProtectedAction()) return;
+                    setActiveTab("settings");
+                  }}
                 />
               </div>
 
-              <button
-                onClick={handleLogout}
-                className={`hidden w-full items-center justify-center gap-2 rounded-2xl border p-4 text-sm font-black transition lg:flex ${
-                  bgToggle
-                    ? "border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-600 hover:text-white"
-                    : "border-red-100 bg-white text-red-600 hover:bg-red-600 hover:text-white"
-                }`}
-              >
-                <LogOut size={17} />
-                Exit Account
-              </button>
+              {userData ? (
+                <button
+                  onClick={handleLogout}
+                  className={`hidden w-full items-center justify-center gap-2 rounded-2xl border p-4 text-sm font-black transition lg:flex ${
+                    bgToggle
+                      ? "border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-600 hover:text-white"
+                      : "border-red-100 bg-white text-red-600 hover:bg-red-600 hover:text-white"
+                  }`}
+                >
+                  <LogOut size={17} />
+                  Exit Account
+                </button>
+              ) : (
+                <button
+                  onClick={handleLoginRedirect}
+                  className="items-center justify-center hidden w-full gap-2 p-4 text-sm font-black text-white transition bg-blue-600 border rounded-2xl border-blue-500/20 hover:bg-blue-700 lg:flex"
+                >
+                  <ShieldCheck size={17} />
+                  Login Account
+                </button>
+              )}
             </div>
           </aside>
 
           <main className="space-y-3 sm:space-y-6 lg:col-span-9">
             {renderTabContent()}
           </main>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoginRequiredModal = ({ open, onClose, onLogin, bgToggle }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+      <div
+        className={`w-full max-w-md overflow-hidden rounded-3xl border shadow-2xl ${
+          bgToggle
+            ? "border-white/10 bg-slate-950 text-white"
+            : "border-white bg-white text-slate-950"
+        }`}
+      >
+        <div className="p-6 text-center text-white bg-gradient-to-br from-blue-600 via-indigo-600 to-slate-950">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto text-3xl shadow-lg rounded-2xl bg-white/15">
+            🔐
+          </div>
+
+          <h2 className="mt-4 text-2xl font-black">Login Required</h2>
+
+          <p className="mt-2 text-sm font-semibold text-blue-100">
+            Profile details view panna login pannunga bro.
+          </p>
+        </div>
+
+        <div className="p-5">
+          <div
+            className={`rounded-2xl border p-4 ${
+              bgToggle
+                ? "border-white/10 bg-white/[0.05]"
+                : "border-slate-200 bg-slate-50"
+            }`}
+          >
+            <p
+              className={`text-sm font-bold leading-6 ${
+                bgToggle ? "text-gray-300" : "text-slate-600"
+              }`}
+            >
+              You are not logged in or your profile data is not available.
+              Please login to continue using profile features.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <button
+              onClick={onClose}
+              className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${
+                bgToggle
+                  ? "border-white/10 bg-white/[0.06] text-gray-200 hover:bg-white/10"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Later
+            </button>
+
+            <button
+              onClick={onLogin}
+              className="px-4 py-3 text-sm font-black text-white transition bg-blue-600 shadow-lg rounded-2xl hover:bg-blue-700"
+            >
+              Login Now
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1112,7 +1270,13 @@ const SecurityCard = ({ icon, title, desc, active, bgToggle }) => (
   </div>
 );
 
-const FormField = ({ label, type = "text", defaultValue, placeholder, bgToggle }) => (
+const FormField = ({
+  label,
+  type = "text",
+  defaultValue,
+  placeholder,
+  bgToggle,
+}) => (
   <div>
     <label
       className={`mb-1.5 block text-[10px] font-black uppercase tracking-wider sm:text-xs ${
