@@ -4,14 +4,20 @@ const getProductController = {
   getProductsByBrand: async (req, res) => {
     try {
       const { brandname } = req.params;
+      const { page = 1, limit = 100 } = req.query;
 
-      const products = await getProductsService.getProductsByBrand(brandname);
+      const result = await getProductsService.getProductsByBrand(
+        brandname,
+        page,
+        limit
+      );
 
       return res.status(200).json({
         success: true,
         brandname,
-        count: products.length,
-        products,
+        count: result.products.length,
+        products: result.products,
+        pagination: result.pagination,
       });
     } catch (error) {
       console.error("Get products by brand error:", error);

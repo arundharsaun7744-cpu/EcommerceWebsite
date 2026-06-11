@@ -1,45 +1,55 @@
 const db = require("../db/mysql");
 
-const cleanText = (value = "") => {
-  return value
-    .toString()
-    .toLowerCase()
+const normalizeBrand = (value = "") => {
+  return String(value)
     .trim()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
 };
 
 const getProductsService = {
-  getProductsByBrand: async (brandname) => {
-    const requestedBrand = cleanText(brandname);
+  getProductsByBrand: async (brandname, page = 1, limit = 100) => {
+    const requestedBrand = normalizeBrand(brandname);
 
-    console.log("Requested brand:", brandname);
-    console.log("Clean requested brand:", requestedBrand);
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const productLimit = Math.min(Math.max(Number(limit) || 100, 1), 100);
+    const offset = (currentPage - 1) * productLimit;
 
-    const products = await db("products").select("*");
-
-    console.log("Total products:", products.length);
-
-    if (products.length > 0) {
-      console.log("First product sample:", products[0]);
-    }
-
-    const filteredProducts = products.filter((product) => {
-      const possibleBrands = [
-        product.brandname,
-        product.BrandName,
-        product.brandName,
-        product.brand_name,
-        product.brand,
-        product.category,
-      ];
-
-      return possibleBrands.some((item) => cleanText(item) === requestedBrand);
+    const baseQuery = db("products").where(function () {
+      this.where("BrandName", requestedBrand).orWhere("category", requestedBrand);
     });
 
-    console.log("Filtered products:", filteredProducts.length);
+    const totalResult = await baseQuery.clone().count({ total: "*" }).first();
+    const totalProducts = Number(totalResult?.total || 0);
 
-    return filteredProducts;
+    const products = await baseQuery
+      .clone()
+      .select(
+        "id",
+        "category",
+        "BrandName",
+        "productName",
+        "price",
+        "quantity",
+        "sales",
+        "offer"
+      )
+      .orderBy("id", "desc")
+      .limit(productLimit)
+      .offset(offset);
+
+    const totalPages = Math.ceil(totalProducts / productLimit);
+
+    return {
+      products,
+      pagination: {
+        totalProducts,
+        currentPage,
+        limit: productLimit,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+      },
+    };
   },
 };
 

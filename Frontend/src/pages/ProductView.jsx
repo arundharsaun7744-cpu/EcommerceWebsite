@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const SERVER_BASE_URL = API_BASE_URL.replace("/api", "");
+const PRODUCT_LIMIT = 100;
 
 const getDisplayBrandName = (brandname = "") => {
   return brandname
@@ -240,9 +241,15 @@ export default function ProductView({ bgToggle = false }) {
 
   const [brandProducts, setBrandProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [showBrandIntro, setShowBrandIntro] = useState(false);
   const [productsReady, setProductsReady] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  const isFetchingRef = useRef(false);
 
   const brandTitle =
     brandFromState?.name || getDisplayBrandName(brandname || "Brand");
@@ -251,33 +258,86 @@ export default function ProductView({ bgToggle = false }) {
     return getBrandIntroConfig(brandname, brandTitle);
   }, [brandname, brandTitle]);
 
-  useEffect(() => {
-    const fetchBrandProducts = async () => {
-      try {
+  const fetchBrandProducts = async (pageNumber = 1, isLoadMore = false) => {
+    if (!brandname || isFetchingRef.current) return;
+
+    try {
+      isFetchingRef.current = true;
+
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
         setLoading(true);
         setProductsReady(false);
+      }
 
-        const response = await fetch(
-          `${API_BASE_URL}/products/brand/${encodeURIComponent(brandname)}`
+      const response = await fetch(
+        `${API_BASE_URL}/products/brand/${encodeURIComponent(
+          brandname
+        )}?page=${pageNumber}&limit=${PRODUCT_LIMIT}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Products loading failed");
+      }
+
+      const extracted = Array.isArray(data)
+        ? data
+        : data.products || data.data || [];
+
+      const normalizedProducts = extracted.map(normalizeProduct);
+
+      setBrandProducts((prev) => {
+        if (pageNumber === 1) {
+          return normalizedProducts;
+        }
+
+        const oldIds = new Set(prev.map((item) => item.id));
+
+        const newProducts = normalizedProducts.filter(
+          (item) => !oldIds.has(item.id)
         );
 
-        const data = await response.json();
+        return [...prev, ...newProducts];
+      });
 
-        const extracted = Array.isArray(data)
-          ? data
-          : data.products || data.data || [];
+      setPage(pageNumber);
+      setHasNextPage(Boolean(data.pagination?.hasNextPage));
 
-        setBrandProducts(extracted.map(normalizeProduct));
-      } catch (error) {
-        console.error("❌ ProductView Error:", error);
-        setBrandProducts([]);
-      } finally {
-        setLoading(false);
+      if (data.pagination?.totalProducts) {
+        setTotalProducts(Number(data.pagination.totalProducts));
       }
-    };
+    } catch (error) {
+      console.error("❌ ProductView Error:", error);
+
+      if (pageNumber === 1) {
+        setBrandProducts([]);
+        setHasNextPage(false);
+        setTotalProducts(0);
+      }
+    } finally {
+      isFetchingRef.current = false;
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    setBrandProducts([]);
+    setPage(1);
+    setHasNextPage(true);
+    setTotalProducts(0);
+    setSearchText("");
 
     if (brandname) {
-      fetchBrandProducts();
+      fetchBrandProducts(1, false);
     }
   }, [brandname]);
 
@@ -300,6 +360,34 @@ export default function ProductView({ bgToggle = false }) {
       };
     }
   }, [loading, brandname]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        loading ||
+        loadingMore ||
+        !hasNextPage ||
+        searchText.trim() ||
+        isFetchingRef.current
+      ) {
+        return;
+      }
+
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const fullHeight = document.documentElement.scrollHeight;
+
+      const isNearBottom = scrollTop + windowHeight >= fullHeight - 600;
+
+      if (isNearBottom) {
+        fetchBrandProducts(page + 1, true);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [page, hasNextPage, loading, loadingMore, searchText, brandname]);
 
   const normalizedSearch = useMemo(() => {
     return normalizeText(searchText);
@@ -567,9 +655,7 @@ export default function ProductView({ bgToggle = false }) {
         }
       `}</style>
 
-      {showBrandIntro && (
-        <BrandIntro bgToggle={bgToggle} config={introConfig} />
-      )}
+      {showBrandIntro && <BrandIntro bgToggle={bgToggle} config={introConfig} />}
 
       <div
         className={`transition duration-700 ${
@@ -606,15 +692,26 @@ export default function ProductView({ bgToggle = false }) {
                 bgToggle ? "text-gray-400" : "text-gray-600"
               }`}
             >
-              Total products:{" "}
+              Loaded products:{" "}
               <span className="font-black text-orange-600">
                 {brandProducts.length}
               </span>
+              {totalProducts > 0 && (
+                <>
+                  {" "}
+                  /{" "}
+                  <span className="font-black text-orange-600">
+                    {totalProducts}
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
           <div className="z-10 flex items-center justify-center flex-shrink-0 pr-2 sm:pr-6">
-            <IntroLogo className={`h-16 w-16 ${introConfig.primary} drop-shadow-sm sm:h-24 sm:w-24`} />
+            <IntroLogo
+              className={`h-16 w-16 ${introConfig.primary} drop-shadow-sm sm:h-24 sm:w-24`}
+            />
           </div>
         </section>
 
@@ -630,7 +727,7 @@ export default function ProductView({ bgToggle = false }) {
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder={`Search ${brandTitle} products...`}
+                placeholder={`Search loaded ${brandTitle} products...`}
                 autoComplete="off"
                 className={`w-full rounded-xl border px-4 py-3 pr-20 text-sm font-semibold outline-none transition ${
                   bgToggle
@@ -674,15 +771,50 @@ export default function ProductView({ bgToggle = false }) {
 
         <main className="max-w-5xl mx-auto mt-4 sm:mt-6">
           {searchedProducts.length > 0 ? (
-            <div className="flex flex-col gap-3.5 sm:gap-4">
-              {searchedProducts.map((product, index) => (
-                <ProductCard
-                  key={product.id || index}
-                  product={product}
-                  bgToggle={bgToggle}
-                />
-              ))}
-            </div>
+            <>
+              <div className="flex flex-col gap-3.5 sm:gap-4">
+                {searchedProducts.map((product, index) => (
+                  <ProductCard
+                    key={product.id || `${product.productName}-${index}`}
+                    product={product}
+                    bgToggle={bgToggle}
+                  />
+                ))}
+              </div>
+
+              {loadingMore && (
+                <div className="py-6 text-center">
+                  <p className="text-sm font-black text-orange-500 animate-pulse">
+                    Loading next 100 products...
+                  </p>
+                </div>
+              )}
+
+              {!loadingMore && !hasNextPage && !searchText && (
+                <div className="py-6 text-center">
+                  <p
+                    className={`text-xs font-bold ${
+                      bgToggle ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    All products loaded
+                  </p>
+                </div>
+              )}
+
+              {searchText && hasNextPage && (
+                <div className="py-6 text-center">
+                  <p
+                    className={`text-xs font-bold ${
+                      bgToggle ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    Search current loaded products only. Clear search and scroll
+                    to load more.
+                  </p>
+                </div>
+              )}
+            </>
           ) : (
             <div
               className={`rounded-2xl border p-8 text-center shadow-sm ${
@@ -698,8 +830,7 @@ export default function ProductView({ bgToggle = false }) {
                   bgToggle ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                Example: `apple16`, `apple 16`, `iphone16`, `128gb` nu search
-                pannunga.
+                Example: apple16, apple 16, iphone16, 128gb nu search pannunga.
               </p>
 
               <button
@@ -723,24 +854,38 @@ const BrandIntro = ({ config }) => {
     <div className="brand-intro-overlay fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-gray-950">
       <div className={`absolute inset-0 bg-gradient-to-br ${config.bg}`} />
 
-      <div className={`brand-ring-one absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border ${config.ring1}`} />
-      <div className={`brand-ring-two absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border ${config.ring2}`} />
+      <div
+        className={`brand-ring-one absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border ${config.ring1}`}
+      />
+      <div
+        className={`brand-ring-two absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border ${config.ring2}`}
+      />
       <div className="absolute -translate-x-1/2 -translate-y-1/2 border rounded-full brand-ring-three left-1/2 top-1/2 h-80 w-80 border-white/15" />
 
-      <span className={`brand-orbit-dot-one absolute left-1/2 top-1/2 h-3 w-3 rounded-full ${config.dot1}`} />
-      <span className={`brand-orbit-dot-two absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full ${config.dot2}`} />
+      <span
+        className={`brand-orbit-dot-one absolute left-1/2 top-1/2 h-3 w-3 rounded-full ${config.dot1}`}
+      />
+      <span
+        className={`brand-orbit-dot-two absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full ${config.dot2}`}
+      />
       <span className="brand-orbit-dot-three absolute left-1/2 top-1/2 h-2 w-2 rounded-full bg-white shadow-[0_0_25px_rgba(255,255,255,1)]" />
 
       <div className="absolute inset-y-0 left-0 w-32 brand-light-sweep bg-white/20 blur-2xl" />
 
       <div className="relative z-10 flex flex-col items-center text-center">
         <div className="relative brand-big-logo">
-          <div className={`absolute inset-0 rounded-full blur-3xl ${config.glow}`} />
-          <Logo className={`relative h-36 w-36 ${config.primary} drop-shadow-[0_0_40px_rgba(255,255,255,0.35)] sm:h-48 sm:w-48`} />
+          <div
+            className={`absolute inset-0 rounded-full blur-3xl ${config.glow}`}
+          />
+          <Logo
+            className={`relative h-36 w-36 ${config.primary} drop-shadow-[0_0_40px_rgba(255,255,255,0.35)] sm:h-48 sm:w-48`}
+          />
         </div>
 
         <div className="-mt-2">
-          <p className={`text-[10px] font-black uppercase tracking-[0.45em] sm:text-xs ${config.primary}`}>
+          <p
+            className={`text-[10px] font-black uppercase tracking-[0.45em] sm:text-xs ${config.primary}`}
+          >
             {config.label}
           </p>
           <h2 className="mt-2 text-2xl font-black text-white sm:text-4xl">
